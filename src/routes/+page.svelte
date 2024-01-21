@@ -4,7 +4,7 @@
   	
 	import BasicInfo from "../components/basic_info.svelte";
 
-	let id = $page.url.searchParams.get("id")
+	let id = "";
 	let input_data = "";
 
 	let loading = false;
@@ -105,6 +105,13 @@
 	 *  		state: string,
 	 * 		},
 	 * 		modifiedTimestamp: number,
+	 * 		stats: {
+	 *  		wins: number,
+	 * 			losses: number,
+	 * 			pins: number,
+	 * 			techs: number,
+	 * 			ratio: [number, number],
+	 *  	}
 	 *  } | null
 	 * }}
 	*/
@@ -151,7 +158,8 @@
 			return;
 		}
 
-		(await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&fields[bout]=none&include=topWrestler,bottomWrestler,topWrestler.division,bottomWrestler.division,topWrestler.team,bottomWrestler.team`, { headers })).json().then(d => {
+		await (async () => {
+			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&fields[bout]=none&include=topWrestler,bottomWrestler,topWrestler.division,bottomWrestler.division,topWrestler.team,bottomWrestler.team`, { headers })).json();
 			raw_data = d;
 
 			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
@@ -176,14 +184,25 @@
 			}
 
 			window["current_data"] = data;
-		});
+		})();
 
-		//await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=064ad7f4-8d16-4dd2-94b1-1dd1c45c3832&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass`, { headers });
+		await (async () => {
+			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
+
+			// calculator date of start of the season (first monday after thanksgiving(fourth thursday of november))
+			const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
+			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
+			
+			const season_start = new Date(thanksgiving.getFullYear(), thanksgiving.getMonth(), thanksgiving.getDate() + 4);
+
+			console.log({ thanksgiving, season_start });
+		})();
 
 		loading = false;
 	};
 
 	onMount(() => {
+		id = $page.url.searchParams.get("id") || "";
 		if ($page.url.searchParams.get("id") != "") load_data();
 	});
 </script>
