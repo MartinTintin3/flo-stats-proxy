@@ -203,7 +203,7 @@
 
 	onMount(() => {
 		id = $page.url.searchParams.get("id") || "";
-		if ($page.url.searchParams.get("id") != "") load_data();
+		if ($page.url.searchParams.get("id")) load_data();
 	});
 </script>
 
