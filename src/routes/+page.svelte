@@ -1,6 +1,8 @@
 <script>
 	import { page } from "$app/stores";
 	import { onMount } from "svelte";
+  	
+	import BasicInfo from "../components/basic_info.svelte";
 
 	let id = $page.url.searchParams.get("id")
 	let input_data = "";
@@ -88,12 +90,14 @@
 	 * 	wrestler: {
 	 * 		id: string,
 	 *  	createdTimestamp: number,
-	 *  	divisionId: string,
+	 *  	division: string,
 	 *  	firstName: string,
 	 *  	lastName: string,
+	 * 		city: string,
+	 *  	state: string,
 	 * 		grade: {
 	 * 			name: string,
-	 * 			grade: number,
+	 * 			number: number,
 	 *  	},
 	 *  	location: {
 	 *  		city: string,
@@ -107,6 +111,8 @@
 	const data = {
 		wrestler: null,
 	};
+
+	let raw_data = null;
 
 	const load_data = async () => {
 		loading = true;
@@ -145,17 +151,20 @@
 			return;
 		}
 
-		(await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&fields[bout]=none&include=bottomWrestler,topWrestler`, { headers })).json().then(d => {
+		(await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&fields[bout]=none&include=topWrestler,bottomWrestler,topWrestler.division,bottomWrestler.division,topWrestler.team,bottomWrestler.team`, { headers })).json().then(d => {
+			raw_data = d;
+
 			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
+			const division = d.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
+			// division.attributes.sequence = division number
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
 				createdTimestamp: Date.parse(wrestler.attributes.createdDateTimeUtc),
-				divisionId: wrestler.attributes.divisionId,
 				firstName: wrestler.attributes.firstName,
 				lastName: wrestler.attributes.lastName,
 				grade: {
 					name: wrestler.attributes.grade.attributes.name,
-					grade: wrestler.attributes.grade.attributes.numericValue,
+					number: wrestler.attributes.grade.attributes.numericValue,
 				},
 				location: {
 					city: wrestler.attributes.location.city,
@@ -163,13 +172,14 @@
 					state: wrestler.attributes.location.state
 				},
 				modifiedTimestamp: Date.parse(wrestler.attributes.modifiedDateTimeUtc),
+				division: `${division.attributes.name} D${division.attributes.sequence}`,
 			}
 
 			window["current_data"] = data;
 		});
 
 		//await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=064ad7f4-8d16-4dd2-94b1-1dd1c45c3832&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass`, { headers });
-		
+
 		loading = false;
 	};
 
@@ -179,7 +189,7 @@
 </script>
 
 <svelte:head>
-	<title>Flo Stats{data.wrestler != null ? ` | ${data.wrestler.firstName} ${data.wrestler.lastName}` : ""}</title> 
+	<title>Flo Stats{data.wrestler ? ` | ${data.wrestler.firstName} ${data.wrestler.lastName}` : ""}</title> 
 </svelte:head>
 
 <svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { id = input_data; load_data() } }} />
@@ -189,10 +199,47 @@
 	<button type="button" on:click={() => { id = input_data; load_data() }}>Fetch</button>
 </div>
 
+<div class="data">
+	{#if loading}
+		<p>Loading...</p>
+	{:else if data.wrestler == null}
+		<p>No data</p>
+	{:else}
+		<BasicInfo wrestler_data={data.wrestler} />
+	{/if}
+</div>
+
+
+
 <style>
 	* {
 		text-align: center;
 		margin: auto;
 		font-family: Arial, Helvetica, sans-serif;
+	}
+
+	.data {
+		padding: 15px;
+	}
+
+	input {
+		padding: 5px;
+		border-radius: 5px;
+		border: 1px solid #ccc;
+	}
+
+	button {
+		padding: 5px;
+		border-radius: 5px;
+		border: 1px solid #ccc;
+		background-color: #eee;
+	}
+
+	button:hover {
+		background-color: #ddd;
+	}
+
+	button:active {
+		background-color: #ccc;
 	}
 </style>
