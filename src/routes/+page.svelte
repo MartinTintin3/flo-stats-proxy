@@ -1,13 +1,11 @@
 <script>
 	import { page } from "$app/stores";
 	import { onMount } from "svelte";
-  	
-	import BasicInfo from "../components/basic_info.svelte";
+
+	import { afterNavigate, beforeNavigate } from "$app/navigation";
+	import { ratio } from "../defs";
 
 	let id = "";
-	let input_data = "";
-
-	let loading = false;
 
 /*
 "bracketSpot": null,
@@ -85,36 +83,7 @@
         "zipCode": null
 */
 
-	/**
-	 * @type {{
-	 * 	wrestler: {
-	 * 		id: string,
-	 *  	createdTimestamp: number,
-	 *  	division: string,
-	 *  	firstName: string,
-	 *  	lastName: string,
-	 * 		city: string,
-	 *  	state: string,
-	 * 		grade: {
-	 * 			name: string,
-	 * 			number: number,
-	 *  	},
-	 *  	location: {
-	 *  		city: string,
-	 *  		country: string,
-	 *  		state: string,
-	 * 		},
-	 * 		modifiedTimestamp: number,
-	 * 		stats: {
-	 *  		wins: number,
-	 * 			losses: number,
-	 * 			pins: number,
-	 * 			techs: number,
-	 * 			ratio: [number, number],
-	 *  	}
-	 *  } | null
-	 * }}
-	*/
+	/** @type {import("../defs").Data} */
 	const data = {
 		wrestler: null,
 	};
@@ -122,8 +91,6 @@
 	let raw_data = null;
 
 	const load_data = async () => {
-		loading = true;
-
 		if (id == "") return alert("No ID/URL provided");
 
 		const headers = new Headers({
@@ -159,12 +126,55 @@
 		}
 
 		await (async () => {
-			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&fields[bout]=none&include=topWrestler,bottomWrestler,topWrestler.division,bottomWrestler.division,topWrestler.team,bottomWrestler.team`, { headers })).json();
+			console.log("Fetching...");
+			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
 			raw_data = d;
+
+			console.log("Processing...");
+
+			window["raw_data"] = raw_data;
 
 			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
 			const division = d.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
-			// division.attributes.sequence = division number
+
+			/*const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
+			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
+			
+			const season_start = new Date(thanksgiving.getFullYear(), thanksgiving.getMonth(), thanksgiving.getDate() + 4);*/
+
+			const filteredBouts = d.data.filter(x => x.attributes.winType != "BYE" && x.attributes.winnerWrestlerId);
+
+			/** @type {import("../defs").Stats} */
+			const stats = {
+				total: filteredBouts.length,
+				wins: 0,
+				losses: 0,
+				pins: 0,
+				techs: 0,
+				ratio: [0, 0],
+			};
+
+			filteredBouts.forEach(bout => {
+				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
+				if (winner) {
+					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
+						stats.wins++;
+
+						if (bout.attributes.winType == "F") {
+							stats.pins++;
+						} else if (bout.attributes.winType == "TF") {
+							stats.techs++;
+						}
+					} else {
+						stats.losses++;
+					}
+				} else {
+					console.log(bout);
+				}
+			});
+
+			stats.ratio = ratio(stats.wins, stats.losses);
+
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
 				createdTimestamp: Date.parse(wrestler.attributes.createdDateTimeUtc),
@@ -181,29 +191,23 @@
 				},
 				modifiedTimestamp: Date.parse(wrestler.attributes.modifiedDateTimeUtc),
 				division: `${division.attributes.name} D${division.attributes.sequence}`,
+				stats,
 			}
 
 			window["current_data"] = data;
 		})();
-
-		await (async () => {
-			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
-
-			// calculator date of start of the season (first monday after thanksgiving(fourth thursday of november))
-			const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
-			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
-			
-			const season_start = new Date(thanksgiving.getFullYear(), thanksgiving.getMonth(), thanksgiving.getDate() + 4);
-
-			console.log({ thanksgiving, season_start });
-		})();
-
-		loading = false;
 	};
 
-	onMount(() => {
+	afterNavigate(() => {
+		console.log("afterNavigate", $page.url.searchParams.get("id"));
 		id = $page.url.searchParams.get("id") || "";
-		if ($page.url.searchParams.get("id")) load_data();
+		if (id != "") load_data();
+	});
+
+	onMount(() => {
+		console.log("onMount", $page.url.searchParams.get("id"));
+		id = $page.url.searchParams.get("id") || "";
+		if (id != "") load_data();
 	});
 </script>
 
@@ -211,34 +215,52 @@
 	<title>Flo Stats{data.wrestler ? ` | ${data.wrestler.firstName} ${data.wrestler.lastName}` : ""}</title> 
 </svelte:head>
 
-<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { id = input_data; load_data() } }} />
+<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} />
 
-<div>
-	<input type="text" placeholder="ID or URL" bind:value={input_data}>
-	<button type="button" on:click={() => { id = input_data; load_data() }}>Fetch</button>
+<div class="container">
+	<div class="id-input">
+		<input type="text" placeholder="ID or URL" bind:value={id}>
+		<button type="button" on:click={load_data}>Fetch</button>
+	</div>
+	
+	<div class="data">
+		{#if data.wrestler == null}
+			<p>No data</p>
+		{:else}
+			<div class="basic-info">
+				<span class="basic-info-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
+				<span class="basic-info-grade"><span class="info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
+				<span class="basic-info-division"><span class="info-label">Division:</span> {data.wrestler.division}</span>
+				<span class="basic-info-location"><span class="info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
+				<span class="basic-info-created"><span class="info-label">Created:</span> {new Date(data.wrestler.createdTimestamp).toLocaleString()}</span>
+				<span class="basic-info-modified"><span class="info-label">Last Modified:</span> {new Date(data.wrestler.modifiedTimestamp).toLocaleString()}</span>
+			</div>
+	
+			<div class="stats">
+				<span><span class="stats-label">Total:</span> {data.wrestler.stats.total}</span>
+				<span><span class="stats-label">Wins:</span> <span class="green">{data.wrestler.stats.wins}</span></span>
+				<span><span class="stats-label">Losses:</span> <span class="red">{data.wrestler.stats.losses}</span></span>
+				<span><span class="stats-label">Pins:</span> {data.wrestler.stats.pins}</span>
+				<span><span class="stats-label">Techs:</span> {data.wrestler.stats.techs}</span>
+				<span><span class="stats-label">W/L Ratio:</span> <span class="green">{data.wrestler.stats.ratio[0]}</span>:<span class="red">{data.wrestler.stats.ratio[1]}</span> <span class="{data.wrestler.stats.ratio[1] == 0 ? "green" : data.wrestler.stats.ratio[0] / data.wrestler.stats.ratio[1] > 1 ? "green" : "red"}">({data.wrestler.stats.ratio[1] != 0 ? ((Math.round(data.wrestler.stats.ratio[0] / data.wrestler.stats.ratio[1] * 100) / 100).toFixed(2)) : data.wrestler.stats.ratio[0]})</span></span>
+			</div>
+		{/if}
+	</div>
 </div>
-
-<div class="data">
-	{#if loading}
-		<p>Loading...</p>
-	{:else if data.wrestler == null}
-		<p>No data</p>
-	{:else}
-		<BasicInfo wrestler_data={data.wrestler} />
-	{/if}
-</div>
-
-
 
 <style>
-	* {
+	:global(*) {
 		text-align: center;
 		margin: auto;
 		font-family: Arial, Helvetica, sans-serif;
 	}
 
-	.data {
-		padding: 15px;
+	.container {
+		padding: 0.7em;
+	}
+
+	.id-input {
+		padding: 10px;
 	}
 
 	input {
@@ -260,5 +282,56 @@
 
 	button:active {
 		background-color: #ccc;
+	}
+
+	.basic-info {
+		margin: 15px 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.basic-info-name {
+		font-size: 1.5em;
+		font-weight: bold;
+	}
+
+	.basic-info-grade {
+		font-size: 1.2em;
+	}
+
+	.basic-info-division {
+		font-size: 1.2em;
+	}
+
+	.basic-info-location {
+		font-size: 1.2em;
+	}
+
+	.basic-info-created {
+		font-size: 1.2em;
+	}
+
+	.basic-info-modified {
+		font-size: 1.2em;
+	}
+
+	.stats {
+		margin: 15px 0;
+	}
+
+	.stats-label {
+		font-weight: bold;
+	}
+
+	.green {
+		color: green;
+	}
+
+	.red {
+		color: red;
+	}
+
+	.info-label {
+		font-weight: bold;
 	}
 </style>
