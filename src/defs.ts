@@ -19,7 +19,6 @@ export interface Stats {
 
 export interface Wrestler {
 	id: string;
-	createdTimestamp: number;
 	division: string;
 	firstName: string;
 	lastName: string;
@@ -32,7 +31,6 @@ export interface Wrestler {
 		country: string;
 		state: string;
 	};
-	modifiedTimestamp: number;
 	stats: Stats;
 }
 
@@ -42,11 +40,11 @@ export interface Data {
 
 /**
  * Calculate ratio of wins to losses
- * @return {[number, number]}
+ * @return {Ratio}
  * @param {number} wins
  * @param {number} losses
  */
-export function ratio(wins: number, losses: number): [number, number]{
+export function ratio(wins: number, losses: number): Ratio {
 	/**
 	 * @param {number} a
 	 * @param {number} b

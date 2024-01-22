@@ -132,6 +132,10 @@
 
 			console.log("Processing...");
 
+			raw_data.included.sort((a, b) => {
+				Date.parse(a.attributes.modifiedDateTimeUtc) - Date.parse(b.attributes.modifiedDateTimeUtc);
+			});
+
 			window["raw_data"] = raw_data;
 
 			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
