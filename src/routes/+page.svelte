@@ -181,7 +181,6 @@
 
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
-				createdTimestamp: Date.parse(wrestler.attributes.createdDateTimeUtc),
 				firstName: wrestler.attributes.firstName,
 				lastName: wrestler.attributes.lastName,
 				grade: {
@@ -193,7 +192,6 @@
 					country: wrestler.attributes.location.country,
 					state: wrestler.attributes.location.state
 				},
-				modifiedTimestamp: Date.parse(wrestler.attributes.modifiedDateTimeUtc),
 				division: `${division.attributes.name} D${division.attributes.sequence}`,
 				stats,
 			}
@@ -236,8 +234,6 @@
 				<span class="basic-info-grade"><span class="info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
 				<span class="basic-info-division"><span class="info-label">Division:</span> {data.wrestler.division}</span>
 				<span class="basic-info-location"><span class="info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
-				<span class="basic-info-created"><span class="info-label">Created:</span> {new Date(data.wrestler.createdTimestamp).toLocaleString()}</span>
-				<span class="basic-info-modified"><span class="info-label">Last Modified:</span> {new Date(data.wrestler.modifiedTimestamp).toLocaleString()}</span>
 			</div>
 	
 			<div class="stats">
