@@ -25,7 +25,7 @@ export interface Wrestler {
 	grade: {
 		name: string;
 		number: number;
-	};
+	} | null;
 	location: {
 		city: string;
 		country: string;

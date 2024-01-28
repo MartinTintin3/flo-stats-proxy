@@ -250,10 +250,10 @@
 				id: wrestler.attributes.identityPersonId,
 				firstName: wrestler.attributes.firstName,
 				lastName: wrestler.attributes.lastName,
-				grade: {
+				grade: wrestler.attributes.grade ? {
 					name: wrestler.attributes.grade.attributes.name,
 					number: wrestler.attributes.grade.attributes.numericValue,
-				},
+				} : null,
 				location: {
 					city: wrestler.attributes.location.city,
 					country: wrestler.attributes.location.country,
@@ -298,7 +298,9 @@
 		{:else}
 			<div class="basic-info">
 				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
+				{#if data.wrestler.grade}
 				<span class="main-info"><span class="main-info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
+				{/if}
 				<span class="main-info"><span class="main-info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
 
 				<div class="all-stats-container">
