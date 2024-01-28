@@ -201,16 +201,21 @@
 
 			total_stats.ratio = ratio(total_stats.wins, total_stats.losses);
 
-			/** @type {Array<{ season: string, stats: import("../defs").Stats }>} */
-			const stats_by_season = [];
+			/** @type {Array<{ season: string, stats: import("../defs").Stats, grade: import("../defs").Grade | null }>} */
+			const seasons = [];
 
 			filteredBouts.forEach(bout => {
+				const top_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.topWrestlerId);
+				const bottom_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.bottomWrestlerId);
+
+				const selected_wrestler = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? top_wrestler : bottom_wrestler : bottom_wrestler;
+
 				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
 				if (winner) {
 					const season = get_season(new Date(bout.attributes.modifiedDateTimeUtc || bout.attributes.createdDateTimeUtc));
-					
-					if (!stats_by_season.find(x => x.season == season)) {
-						stats_by_season.push({
+
+					if (!seasons.find(x => x.season == season)) {
+						seasons.push({
 							season,
 							stats: {
 								total: 0,
@@ -219,12 +224,13 @@
 								pins: 0,
 								techs: 0,
 								ratio: [0, 0],
-							}
+							},
+							grade: null,
 						});
 					}
 
 					// @ts-ignore
-					const season_stats = stats_by_season.find(x => x.season == season).stats;
+					const season_stats = seasons.find(x => x.season == season).stats;
 
 					season_stats.total++;
 
@@ -239,10 +245,17 @@
 					} else {
 						season_stats.losses++;
 					}
+
+					if (selected_wrestler.attributes.grade) {
+						seasons.find(x => x.season == season).grade = {
+							name: selected_wrestler.attributes.grade.attributes.name,
+							number: selected_wrestler.attributes.grade.attributes.numericValue,
+						};
+					}
 				}
 			});
 
-			stats_by_season.forEach(season => {
+			seasons.forEach(season => {
 				season.stats.ratio = ratio(season.stats.wins, season.stats.losses);
 			});
 
@@ -260,7 +273,7 @@
 					state: wrestler.attributes.location.state
 				},
 				total_stats,
-				stats_by_season,
+				seasons,
 			}
 
 			window["current_data"] = data;
@@ -314,9 +327,12 @@
 					<div class="season-stats">
 						<span class="stats-group-label">By Season</span>
 						<ul class="season-stats-list" style="list-style-type: none">
-							{#each data.wrestler.stats_by_season as season}
+							{#each data.wrestler.seasons as season}
 								<li class="stat-season">
 									<h4 class="stats-label">{season.season}</h4>
+									{#if season.grade}
+										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
+									{/if}
 									<div class="stats-data">
 										<Stats stats={season.stats}/>
 									</div>

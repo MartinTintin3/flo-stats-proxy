@@ -6,6 +6,8 @@ export enum Progress {
 
 export type Ratio = [number, number];
 
+export type Grade = { name: string; number: number; };
+
 export type Nullable<T> = T | null;
 
 
@@ -22,19 +24,17 @@ export interface Wrestler {
 	id: string;
 	firstName: string;
 	lastName: string;
-	grade: {
-		name: string;
-		number: number;
-	} | null;
+	grade: Nullable<Grade>;
 	location: {
 		city: string;
 		country: string;
 		state: string;
 	};
 	total_stats: Stats;
-	stats_by_season: Array<{
+	seasons: Array<{
 		season: string;
 		stats: Stats;
+		grade: Nullable<Grade>;
 	}>;
 }
 
