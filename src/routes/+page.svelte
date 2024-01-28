@@ -4,8 +4,29 @@
 
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
 	import { ratio } from "../defs";
+	
+	import Stats from "../components/stats.svelte";
 
 	let id = "";
+
+	/**
+	 * @param {Date} date
+	 */
+	const get_season = date => {
+		const thanksgiving = new Date(date.getFullYear(), 10, 1);
+		
+		if (thanksgiving.getDay() > 4) {
+			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 28);
+		} else {
+			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
+		}
+
+		if (date < thanksgiving) {
+			return `${date.getFullYear() - 1}-${date.getFullYear()}`;
+		} else {
+			return `${date.getFullYear()}-${date.getFullYear() + 1}`;
+		}
+	};
 
 /*
 "bracketSpot": null,
@@ -111,9 +132,7 @@
 			}
 		}
 
-		if (id != $page.url.searchParams.get("id")) {
-			history.pushState({}, "", `?id=${id}`);
-		}
+		window["get_season"] = get_season;
 
 		if (!await (async () => {
 			const res = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0`, { headers });
@@ -126,8 +145,8 @@
 		}
 
 		await (async () => {
-			console.log("Fetching...");
-			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
+			console.log("Fetching bouts...");
+			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
 			raw_data = d;
 
 			console.log("Processing...");
@@ -141,6 +160,9 @@
 			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
 			const division = d.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
 
+			document.title = `Flo Stats | ${wrestler.attributes.firstName} ${wrestler.attributes.lastName}`;
+			history.pushState({}, "", `?id=${id}`);
+
 			/*const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
 			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
 			
@@ -149,7 +171,7 @@
 			const filteredBouts = d.data.filter(x => x.attributes.winType != "BYE" && x.attributes.winnerWrestlerId);
 
 			/** @type {import("../defs").Stats} */
-			const stats = {
+			const total_stats = {
 				total: filteredBouts.length,
 				wins: 0,
 				losses: 0,
@@ -162,22 +184,67 @@
 				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
 				if (winner) {
 					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
-						stats.wins++;
+						total_stats.wins++;
 
 						if (bout.attributes.winType == "F") {
-							stats.pins++;
+							total_stats.pins++;
 						} else if (bout.attributes.winType == "TF") {
-							stats.techs++;
+							total_stats.techs++;
 						}
 					} else {
-						stats.losses++;
+						total_stats.losses++;
 					}
 				} else {
 					console.log(bout);
 				}
 			});
 
-			stats.ratio = ratio(stats.wins, stats.losses);
+			total_stats.ratio = ratio(total_stats.wins, total_stats.losses);
+
+			/** @type {Array<{ season: string, stats: import("../defs").Stats }>} */
+			const stats_by_season = [];
+
+			filteredBouts.forEach(bout => {
+				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
+				if (winner) {
+					const season = get_season(new Date(bout.attributes.modifiedDateTimeUtc || bout.attributes.createdDateTimeUtc));
+					
+					if (!stats_by_season.find(x => x.season == season)) {
+						stats_by_season.push({
+							season,
+							stats: {
+								total: 0,
+								wins: 0,
+								losses: 0,
+								pins: 0,
+								techs: 0,
+								ratio: [0, 0],
+							}
+						});
+					}
+
+					// @ts-ignore
+					const season_stats = stats_by_season.find(x => x.season == season).stats;
+
+					season_stats.total++;
+
+					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
+						season_stats.wins++;
+
+						if (bout.attributes.winType == "F") {
+							season_stats.pins++;
+						} else if (bout.attributes.winType == "TF") {
+							season_stats.techs++;
+						}
+					} else {
+						season_stats.losses++;
+					}
+				}
+			});
+
+			stats_by_season.forEach(season => {
+				season.stats.ratio = ratio(season.stats.wins, season.stats.losses);
+			});
 
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
@@ -192,8 +259,8 @@
 					country: wrestler.attributes.location.country,
 					state: wrestler.attributes.location.state
 				},
-				division: `${division.attributes.name} D${division.attributes.sequence}`,
-				stats,
+				total_stats,
+				stats_by_season,
 			}
 
 			window["current_data"] = data;
@@ -214,7 +281,7 @@
 </script>
 
 <svelte:head>
-	<title>Flo Stats{data.wrestler ? ` | ${data.wrestler.firstName} ${data.wrestler.lastName}` : ""}</title> 
+	<title>Flo Stats</title> 
 </svelte:head>
 
 <svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} />
@@ -230,19 +297,32 @@
 			<p>No data</p>
 		{:else}
 			<div class="basic-info">
-				<span class="basic-info-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
-				<span class="basic-info-grade"><span class="info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
-				<span class="basic-info-division"><span class="info-label">Division:</span> {data.wrestler.division}</span>
-				<span class="basic-info-location"><span class="info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
-			</div>
-	
-			<div class="stats">
-				<span><span class="stats-label">Total:</span> {data.wrestler.stats.total}</span>
-				<span><span class="stats-label">Wins:</span> <span class="green">{data.wrestler.stats.wins}</span></span>
-				<span><span class="stats-label">Losses:</span> <span class="red">{data.wrestler.stats.losses}</span></span>
-				<span><span class="stats-label">Pins:</span> {data.wrestler.stats.pins}</span>
-				<span><span class="stats-label">Techs:</span> {data.wrestler.stats.techs}</span>
-				<span><span class="stats-label">W/L Ratio:</span> <span class="green">{data.wrestler.stats.ratio[0]}</span>:<span class="red">{data.wrestler.stats.ratio[1]}</span> <span class="{data.wrestler.stats.ratio[1] == 0 ? "green" : data.wrestler.stats.ratio[0] / data.wrestler.stats.ratio[1] > 1 ? "green" : "red"}">({data.wrestler.stats.ratio[1] != 0 ? ((Math.round(data.wrestler.stats.ratio[0] / data.wrestler.stats.ratio[1] * 100) / 100).toFixed(2)) : data.wrestler.stats.ratio[0]})</span></span>
+				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
+				<span class="main-info"><span class="main-info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
+				<span class="main-info"><span class="main-info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
+
+				<div class="all-stats-container">
+					<span class="main-info-label" style="margin: 5px">Match Statistics:</span>
+					<div class="total-stats">
+						<span class="stats-group-label">Total</span>
+						<div class="stats-data">
+							<Stats stats={data.wrestler.total_stats}/>
+						</div>
+					</div>
+					<div class="season-stats">
+						<span class="stats-group-label">By Season</span>
+						<ul class="season-stats-list" style="list-style-type: none">
+							{#each data.wrestler.stats_by_season as season}
+								<li class="stat-season">
+									<h4 class="stats-label">{season.season}</h4>
+									<div class="stats-data">
+										<Stats stats={season.stats}/>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</div>
 			</div>
 		{/if}
 	</div>
@@ -253,6 +333,14 @@
 		text-align: center;
 		margin: auto;
 		font-family: Arial, Helvetica, sans-serif;
+	}
+
+	:global(.red) {
+		color: red;
+	}
+
+	:global(.green) {
+		color: green;
 	}
 
 	.container {
@@ -284,54 +372,73 @@
 		background-color: #ccc;
 	}
 
-	.basic-info {
+	.basic-info, .all-stats-container {
 		margin: 15px 0;
 		display: flex;
 		flex-direction: column;
 	}
 
-	.basic-info-name {
-		font-size: 1.5em;
+	.main-name {
+		font-size: 30px;
 		font-weight: bold;
 	}
 
-	.basic-info-grade {
-		font-size: 1.2em;
+	.main-info, .main-info-label {
+		font-size: 20px;
 	}
 
-	.basic-info-division {
-		font-size: 1.2em;
-	}
-
-	.basic-info-location {
-		font-size: 1.2em;
-	}
-
-	.basic-info-created {
-		font-size: 1.2em;
-	}
-
-	.basic-info-modified {
-		font-size: 1.2em;
-	}
-
-	.stats {
-		margin: 15px 0;
-	}
-
-	.stats-label {
+	.main-info-label {
 		font-weight: bold;
 	}
 
-	.green {
-		color: green;
+	.total-stats, .season-stats {
+		margin: 10px 0;
 	}
 
-	.red {
-		color: red;
-	}
-
-	.info-label {
+	:global(.stats-data-field-label) {
 		font-weight: bold;
+	}
+
+	:global(.stats-data-field) {
+		margin: 0 10px;
+	}
+
+	.stats-group-label {
+		font-weight: bold;
+		font-size: 25px;
+	}
+
+	.stats-data {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		padding-bottom: 10px;
+		padding-top: 10px;
+	}
+
+	.season-stats-list {
+		display: flex;
+		flex-direction: column;
+		flex-wrap: wrap;
+		align-content: center;
+		gap: 10px;
+
+		display: inline-block;
+
+		padding: 10px;
+	}
+
+	.season-stats-list > li {
+		padding: 10px;
+	}
+
+	.season-stats {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.stat-season {
+		border: 1px solid #ccc;
+		flex: 1;
 	}
 </style>

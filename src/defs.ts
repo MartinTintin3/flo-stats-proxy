@@ -8,6 +8,7 @@ export type Ratio = [number, number];
 
 export type Nullable<T> = T | null;
 
+
 export interface Stats {
 	total: number;
 	wins: number;
@@ -19,7 +20,6 @@ export interface Stats {
 
 export interface Wrestler {
 	id: string;
-	division: string;
 	firstName: string;
 	lastName: string;
 	grade: {
@@ -31,7 +31,11 @@ export interface Wrestler {
 		country: string;
 		state: string;
 	};
-	stats: Stats;
+	total_stats: Stats;
+	stats_by_season: Array<{
+		season: string;
+		stats: Stats;
+	}>;
 }
 
 export interface Data {
