@@ -291,13 +291,20 @@
 		id = $page.url.searchParams.get("id") || "";
 		if (id != "") load_data();
 	});
+
+	const handle_popstate = () => {
+		if ($page.url.searchParams.get("id") && $page.url.searchParams.get("id") != id) {
+			id = $page.url.searchParams.get("id");
+			load_data();
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>Flo Stats</title> 
 </svelte:head>
 
-<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} />
+<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} on:popstate={handle_popstate} />
 
 <div class="container">
 	<div class="id-input">
