@@ -341,17 +341,17 @@
 					</div>
 					<div class="season-stats">
 						<span class="stats-group-label">By Season</span>
-						<ul class="season-stats-list" style="list-style-type: none">
+						<div class="season-list">
 							{#each data.wrestler.seasons as season}
-								<li class="stat-season">
+								<div class="season">
 									<h4 class="stats-label">{season.season}</h4>
 									{#if season.grade}
 										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
 									{/if}
 									<Stats stats={season.stats}/>
-								</li>
+								</div>
 							{/each}
-						</ul>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -435,20 +435,21 @@
 		font-size: 25px;
 	}
 
-	.season-stats-list {
+	.season-list {
 		display: flex;
 		flex-direction: column;
 		flex-wrap: wrap;
 		align-content: center;
-		gap: 10px;
+		gap: 0px;
+		align-items: stretch;
 
-		display: inline-block;
+		/* display: inline-block; */
 
 		padding: 10px;
 	}
 
-	.season-stats-list > li {
-		padding: 10px;
+	.season-list > div {
+		padding: 1em;
 	}
 
 	.season-stats {
@@ -456,8 +457,9 @@
 		flex-direction: column;
 	}
 
-	.stat-season {
+	.season {
 		border: 1px solid #ccc;
 		flex: 1;
+		margin: initial;
 	}
 </style>
