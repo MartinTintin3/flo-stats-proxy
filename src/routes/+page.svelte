@@ -204,11 +204,25 @@
 			/** @type {Array<{ season: string, stats: import("../defs").Stats, grade: import("../defs").Grade | null }>} */
 			const seasons = [];
 
+			let latest_location = {
+				city: wrestler.attributes.location.city,
+				state: wrestler.attributes.location.state,
+				country: wrestler.attributes.location.country,
+			};
+
 			filteredBouts.forEach(bout => {
 				const top_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.topWrestlerId);
 				const bottom_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.bottomWrestlerId);
 
 				const selected_wrestler = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? top_wrestler : bottom_wrestler : bottom_wrestler;
+
+				if (latest_location.city == null || latest_location.state == null || latest_location.country == null) {
+					latest_location = {
+						city: selected_wrestler.attributes.location.city,
+						state: selected_wrestler.attributes.location.state,
+						country: selected_wrestler.attributes.location.country,
+					};
+				}
 
 				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
 				if (winner) {
@@ -267,11 +281,7 @@
 					name: wrestler.attributes.grade.attributes.name,
 					number: wrestler.attributes.grade.attributes.numericValue,
 				} : null,
-				location: {
-					city: wrestler.attributes.location.city,
-					country: wrestler.attributes.location.country,
-					state: wrestler.attributes.location.state
-				},
+				location: latest_location,
 				total_stats,
 				seasons,
 			}
@@ -327,9 +337,7 @@
 					<span class="main-info-label" style="margin: 5px">Match Statistics:</span>
 					<div class="total-stats">
 						<span class="stats-group-label">Total</span>
-						<div class="stats-data">
-							<Stats stats={data.wrestler.total_stats}/>
-						</div>
+						<Stats stats={data.wrestler.total_stats}/>
 					</div>
 					<div class="season-stats">
 						<span class="stats-group-label">By Season</span>
@@ -340,9 +348,7 @@
 									{#if season.grade}
 										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
 									{/if}
-									<div class="stats-data">
-										<Stats stats={season.stats}/>
-									</div>
+									<Stats stats={season.stats}/>
 								</li>
 							{/each}
 						</ul>
@@ -353,8 +359,8 @@
 	</div>
 </div>
 
-<style>
-	:global(*) {
+<style> 
+	* {
 		text-align: center;
 		margin: auto;
 		font-family: Arial, Helvetica, sans-serif;
@@ -424,21 +430,9 @@
 		font-weight: bold;
 	}
 
-	:global(.stats-data-field) {
-		margin: 0 10px;
-	}
-
 	.stats-group-label {
 		font-weight: bold;
 		font-size: 25px;
-	}
-
-	.stats-data {
-		display: flex;
-		flex-direction: row;
-		justify-content: center;
-		padding-bottom: 10px;
-		padding-top: 10px;
 	}
 
 	.season-stats-list {
