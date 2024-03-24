@@ -3,14 +3,20 @@
 	import { onMount } from "svelte";
 
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
-	import { ratio, humanFileSize } from "../defs";
+	import { ratio, humanFileSize, DownloadingState, getWithProgress } from "../defs";
 	
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
+	import Collapsible from "../components/Collapsible.svelte";
 
 	let id = "";
 
 	let downloading = false;
+
+	/** @type {import("../defs").Nullable<import("../defs").DownloadingState>} */
+	let downloading_state = DownloadingState.BOUTS;
+
+	let downloading_progress = 0; // between 0 and 1;
 
 	/**
 	 * @param {Date} date
@@ -113,8 +119,6 @@
 		wrestler: null,
 	};
 
-	let raw_data = null;
-
 	const load_data = async () => {
 		if (id == "") return alert("No ID/URL provided");
 
@@ -151,25 +155,39 @@
 		await (async () => {
 			console.log("Fetching bouts...");
 			downloading = true;
-			const req = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers });
-			const d = await req.json();
+			downloading_progress = 0;
+			downloading_state = DownloadingState.BOUTS;
+			let req = await getWithProgress(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, headers, (loaded, total) => {
+				data.response_size = loaded;
+				console.log(loaded, total);
+				downloading_progress = loaded / total;
+			});
+			downloading_progress = 1;
+			//let req = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers });
+			//data.response_size = parseInt(req.headers.get("content-length") ?? "0");
+			const bouts_data = req;
+
+			console.log("Fetching placements...");
+			downloading_state = DownloadingState.PLACEMENTS;
+			const starting_size = data.response_size;
+			req = await getWithProgress(`https://floarena-api.flowrestling.org/wrestlers/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bracketPlacements.weightClass,division,event,weightClass,team`, headers, (loaded, total) => {
+				data.response_size = starting_size + loaded;
+				console.log(loaded, total);
+				downloading_progress = loaded / total;
+			});
+			downloading_progress = 1;
+			const placements_data = req;
+
 			downloading = false;
-			raw_data = d;
-
-			data.response_size = parseInt(req.headers.get("content-length") ?? "0");
-
-			window.req = req;
 
 			console.log("Processing...");
 
-			raw_data.included.sort((a, b) => {
+			bouts_data.included.sort((a, b) => {
 				Date.parse(a.attributes.modifiedDateTimeUtc) - Date.parse(b.attributes.modifiedDateTimeUtc);
 			});
 
-			window["raw_data"] = raw_data;
-
-			const wrestler = d.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
-			const division = d.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
+			const wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
+			const division = bouts_data.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
 
 			document.title = `Flo Stats | ${wrestler.attributes.firstName} ${wrestler.attributes.lastName}`;
 			history.pushState({}, "", `?id=${id}`);
@@ -179,7 +197,7 @@
 			
 			const season_start = new Date(thanksgiving.getFullYear(), thanksgiving.getMonth(), thanksgiving.getDate() + 4);*/
 
-			const filteredBouts = d.data.filter(x => x.attributes.winType != "BYE" && x.attributes.winnerWrestlerId);
+			const filteredBouts = bouts_data.data.filter(x => x.attributes.winType != "BYE" && x.attributes.winnerWrestlerId);
 
 			/** @type {import("../defs").Stats} */
 			const total_stats = {
@@ -192,7 +210,7 @@
 			};
 
 			filteredBouts.forEach(bout => {
-				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
+				const winner = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
 				if (winner) {
 					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
 						total_stats.wins++;
@@ -212,7 +230,7 @@
 
 			total_stats.ratio = ratio(total_stats.wins, total_stats.losses);
 
-			/** @type {Array<{ season: string, stats: import("../defs").Stats, grade: import("../defs").Grade | null }>} */
+			/** @type {Array<{ season: string, stats: import("../defs").Stats, grade: import("../defs").Grade | null, placements: Array<import("../defs").PlacementInfo> }>} */
 			const seasons = [];
 
 			let latest_location = {
@@ -222,8 +240,8 @@
 			};
 
 			filteredBouts.forEach(bout => {
-				const top_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.topWrestlerId);
-				const bottom_wrestler = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.bottomWrestlerId);
+				const top_wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.topWrestlerId);
+				const bottom_wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.bottomWrestlerId);
 
 				const selected_wrestler = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? top_wrestler : bottom_wrestler : bottom_wrestler;
 
@@ -235,7 +253,7 @@
 					};
 				}
 
-				const winner = d.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
+				const winner = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
 				if (winner) {
 					const season = get_season(new Date(bout.attributes.modifiedDateTimeUtc || bout.attributes.createdDateTimeUtc));
 
@@ -251,6 +269,7 @@
 								ratio: [0, 0],
 							},
 							grade: null,
+							placements: [],
 						});
 					}
 
@@ -282,6 +301,28 @@
 
 			seasons.forEach(season => {
 				season.stats.ratio = ratio(season.stats.wins, season.stats.losses);
+			});
+
+			placements_data.data.forEach(w => {
+				const event = placements_data.included.find(x => x.type == "event" && x.id == w.relationships.event.data.id);
+				const placement_info = w.relationships.bracketPlacements.data[0] ? placements_data.included.find(x => x.type == "bracketPlacement" && x.id == w.relationships.bracketPlacements.data[0].id) : null;
+				const weight_class = placements_data.included.find(x => x.type == "weightClass" && x.id == w.relationships.weightClass.data.id);
+				const division = placements_data.included.find(x => x.type == "division" && x.id == w.relationships.division.data.id);
+
+				const season = get_season(new Date(event.attributes.startDateTime));
+
+				if (event.attributes.isDual) return;
+
+				seasons.find(x => x.season == season)?.placements.push({
+					event: {
+						name: event.attributes.name,
+						id: event.id,
+						date: new Date(event.attributes.startDateTime).toLocaleDateString(),
+					},
+					placement: placement_info ? placement_info.attributes.placementDisplay : "DNP",
+					division: division.attributes.name,
+					weight_class: weight_class.attributes.name + " lbs",
+				});
 			});
 
 			data.wrestler = {
@@ -358,7 +399,7 @@
 	<div class="data">
 		{#if data.wrestler == null}
 			{#if downloading}
-				<p>Downloading data...</p>
+				<p>Downloading {downloading_state == DownloadingState.BOUTS ? "bouts" : "placements"}... {Math.round(downloading_progress * 100)}%</p>
 			{:else}
 				<p>No data</p>
 			{/if}
@@ -389,6 +430,23 @@
 										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
 									{/if}
 									<Stats stats={season.stats}/>
+									{#if season.placements.length}
+										<Collapsible unexpanded_title="Placements (Expand)" expanded_title="Placements (Close)">
+											<div class="placements">
+												{#each season.placements as placement}
+													<div class="placement">
+														<span class="placement-event"><a target="_blank" href="https://arena.flowrestling.org/event/{placement.event.id}">{placement.event.name}</a></span>
+														<span>{placement.event.date}</span>
+														<div class="placement-category">
+															<span>{placement.division}</span>
+															<span>{placement.weight_class}</span>
+														</div>
+														<span class="placement-display">{placement.placement}</span>
+													</div>
+												{/each}
+											</div>
+										</Collapsible>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -543,5 +601,34 @@
 
 	a:visited {
 		color: blue;
+	}
+
+	.placements {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+	}
+
+	.placement {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		margin: 0;
+	}
+
+	.placement-event a {
+		font-weight: bold;
+	}
+
+	.placement-category {
+		color: #6f6f73;
+	}
+
+	.placement > * {
+		margin: 0;
+	}
+
+	.placement-display {
+		font-weight: bold;
 	}
 </style>

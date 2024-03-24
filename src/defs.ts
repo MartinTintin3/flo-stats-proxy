@@ -4,6 +4,11 @@ export enum Progress {
 	Loaded = 2,
 }
 
+export enum DownloadingState {
+	BOUTS = 0,
+	PLACEMENTS = 1,
+}
+
 export type Ratio = [number, number];
 
 export type Grade = { name: string; number: number; };
@@ -18,6 +23,16 @@ export interface Stats {
 	pins: number;
 	techs: number;
 	ratio: Ratio;
+}
+export interface PlacementInfo {
+	placement: string;
+	event: {
+		id: string;
+		name: string;
+		date: string;
+	}
+	division: string;
+	weight_class: string;
 }
 
 export interface Wrestler {
@@ -34,12 +49,13 @@ export interface Wrestler {
 	seasons: Array<{
 		season: string;
 		stats: Stats;
+		placements: Array<PlacementInfo>,
 		grade: Nullable<Grade>;
 	}>;
 }
 
 export interface Data {
-	response_size: Nullable<number>;
+	response_size: number;
 	wrestler: Nullable<Wrestler>;
 }
 
@@ -93,4 +109,31 @@ export function humanFileSize(bytes: number, si = false, dp = 1): string {
 	} while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
 
 	return bytes.toFixed(dp) + " " + units[u];
+}
+
+export function getWithProgress(url: string, headers: Headers, onProgress: (loaded: number, total: number) => void): Promise<any> {
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		xhr.responseType = "json";
+
+		xhr.onprogress = (event) => {
+			if (event.lengthComputable) {
+				onProgress(event.loaded, event.total);
+			}
+		};
+
+		xhr.onload = () => {
+			if (xhr.status >= 200 && xhr.status < 300) {
+				resolve(xhr.response);
+			} else {
+				reject(new Error(`HTTP status ${xhr.status}`));
+			}
+		};
+
+		xhr.open("GET", url, true);
+		headers.forEach((value, key) => {
+			xhr.setRequestHeader(key, value);
+		});
+		xhr.send();
+	});
 }
