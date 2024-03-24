@@ -3,12 +3,14 @@
 	import { onMount } from "svelte";
 
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
-	import { ratio } from "../defs";
+	import { ratio, humanFileSize } from "../defs";
 	
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
 
 	let id = "";
+
+	let downloading = false;
 
 	/**
 	 * @param {Date} date
@@ -107,6 +109,7 @@
 
 	/** @type {import("../defs").Data} */
 	const data = {
+		response_size: 0,
 		wrestler: null,
 	};
 
@@ -147,8 +150,15 @@
 
 		await (async () => {
 			console.log("Fetching bouts...");
-			const d = await (await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers })).json();
+			downloading = true;
+			const req = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers });
+			const d = await req.json();
+			downloading = false;
 			raw_data = d;
+
+			data.response_size = parseInt(req.headers.get("content-length") ?? "0");
+
+			window.req = req;
 
 			console.log("Processing...");
 
@@ -347,8 +357,15 @@
 	
 	<div class="data">
 		{#if data.wrestler == null}
-			<p>No data</p>
+			{#if downloading}
+				<p>Downloading data...</p>
+			{:else}
+				<p>No data</p>
+			{/if}
 		{:else}
+			{#if data.response_size}
+				<p>Response size: {humanFileSize(data.response_size, true, 2)}</p>
+			{/if}
 			<div class="basic-info">
 				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
 				{#if data.wrestler.grade}
