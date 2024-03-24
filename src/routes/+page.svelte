@@ -389,7 +389,7 @@
 </Modal>
 
 <div class="container">
-	<h1>Calculate your FloWrestling statistics</h1>
+	<h1>FloWrestling Statistics Calculator</h1>
 	<div class="id-input">
 		<input type="text" placeholder="Athlete ID or URL" bind:value={id}>
 		<button type="button" on:click={load_data}>Fetch</button>
