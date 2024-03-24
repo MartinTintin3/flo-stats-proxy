@@ -200,7 +200,7 @@
 			const wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
 			const division = bouts_data.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
 
-			document.title = `Flo Stats | ${wrestler.attributes.firstName} ${wrestler.attributes.lastName}`;
+			document.title = `${wrestler.attributes.firstName} ${wrestler.attributes.lastName} | Flo Stats`;
 			history.pushState({}, "", `?id=${id}`);
 
 			/*const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
@@ -439,9 +439,6 @@
 
 	<div class="data">
 		{#if data.wrestler != null}
-			{#if data.response_size}
-				<p class="response-size">Response size: {humanFileSize(data.response_size, true, 2)}</p>
-			{/if}
 			<div class="basic-info">
 				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
 				{#if data.wrestler.grade}
@@ -488,6 +485,9 @@
 					</div>
 				</div>
 			</div>
+			{#if data.response_size}
+				<p class="response-size">Response size: {humanFileSize(data.response_size, true, 2)}</p>
+			{/if}
 		{/if}
 	</div>
 </div>
