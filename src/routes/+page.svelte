@@ -325,6 +325,11 @@
 				});
 			});
 
+			seasons.forEach(season => {
+				season.placements.sort((a, b) =>  (new Date(b.event.date)).getTime() - (new Date(a.event.date)).getTime());
+			
+			})
+
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
 				firstName: wrestler.attributes.firstName,
