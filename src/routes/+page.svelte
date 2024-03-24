@@ -406,6 +406,8 @@
 
 	.id-input {
 		padding: 10px;
+		display: flex;
+		gap: 0.3em;
 	}
 
 	input {
