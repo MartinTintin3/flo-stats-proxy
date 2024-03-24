@@ -5,8 +5,9 @@ export enum Progress {
 }
 
 export enum DownloadingState {
-	BOUTS = 0,
-	PLACEMENTS = 1,
+	CHECKING = 0,
+	BOUTS = 1,
+	PLACEMENTS = 2,
 }
 
 export type Ratio = [number, number];
@@ -14,7 +15,6 @@ export type Ratio = [number, number];
 export type Grade = { name: string; number: number; };
 
 export type Nullable<T> = T | null;
-
 
 export interface Stats {
 	total: number;
