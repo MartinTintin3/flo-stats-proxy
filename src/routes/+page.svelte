@@ -407,9 +407,18 @@
 <div class="container">
 	<h1>FloWrestling Statistics Calculator</h1>
 	<div class="id-input">
-		<input type="text" placeholder="Athlete ID or URL" bind:value={id}>
-		<button type="button" on:click={load_data}>Fetch</button>
-		<button type="button" on:click={() => { showing_help = true }}>Help</button>
+		<div>
+			<input type="text" placeholder="Athlete ID or URL" bind:value={id}>
+			<button type="button" on:click={load_data}>Fetch</button>
+		</div>
+		<div>
+			<button type="button" on:click={() => {
+				navigator.clipboard.readText().then(text => {
+					id = text;
+				});
+			}}>Paste from Clipboard</button>
+			<button type="button" on:click={() => { showing_help = true }}>Help</button>
+		</div>
 	</div>
 	
 	{#if downloading}
@@ -509,6 +518,7 @@
 		padding: 10px;
 		display: flex;
 		gap: 0.3em;
+		flex-direction: column;
 	}
 
 	input {
