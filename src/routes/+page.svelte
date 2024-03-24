@@ -5,7 +5,8 @@
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
 	import { ratio } from "../defs";
 	
-	import Stats from "../components/stats.svelte";
+	import Stats from "../components/Stats.svelte";
+	import Modal from "../components/Modal.svelte";
 
 	let id = "";
 
@@ -308,6 +309,8 @@
 			load_data();
 		}
 	}
+
+	let showing_help = false;
 </script>
 
 <svelte:head>
@@ -316,10 +319,30 @@
 
 <svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} on:popstate={handle_popstate} />
 
+<Modal bind:showModal = {showing_help}>
+	<h2 slot="header">
+		Correctly getting your ID
+	</h2>
+
+	<div class="help-info">
+		<div class="correct">
+			<span class="help-title">Correct:</span>
+			<img src="correct.png" alt="Correct example" />
+		</div>
+		<div class="incorrect">
+			<span class="help-title">Incorrect:</span>
+			<img src="incorrect.png" alt="Incorrect example" />
+		</div>
+	</div>
+	<span class="help-subtitle">Usually found in <a target="_blank" href="https://arena.flowrestling.org">FloArena</a> tournaments</span>
+</Modal>
+
 <div class="container">
+	<h1>Calculate your FloWrestling statistics</h1>
 	<div class="id-input">
-		<input type="text" placeholder="ID or URL" bind:value={id}>
+		<input type="text" placeholder="Athlete ID or URL" bind:value={id}>
 		<button type="button" on:click={load_data}>Fetch</button>
+		<button type="button" on:click={() => { showing_help = true }}>Help</button>
 	</div>
 	
 	<div class="data">
@@ -376,6 +399,9 @@
 
 	.container {
 		padding: 0.7em;
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
 	}
 
 	.id-input {
@@ -461,5 +487,42 @@
 		border: 1px solid #ccc;
 		flex: 1;
 		margin: initial;
+	}
+	
+	.help-info {
+		display: flex;
+		flex-direction: row;
+		gap: 1em;
+	}
+
+	.correct > .help-title {
+		color: green;
+	}
+
+	.incorrect > .help-title {
+		color: red;
+	}
+
+	.help-title {
+		font-weight: bold;
+	}
+
+	.help-info > div > img {
+		width: 300px;
+		border: 1px solid black;
+	}
+
+	.help-info > div {
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
+	}
+
+	.help-subtitle {
+		padding-top: 1em;
+	}
+
+	a:visited {
+		color: blue;
 	}
 </style>
