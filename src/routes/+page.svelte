@@ -142,15 +142,26 @@
 
 		window["get_season"] = get_season;
 
-		if (!await (async () => {
-			const res = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0`, { headers });
-			const data = await res.json();
+		downloading_state = DownloadingState.CHECKING;
+		downloading = true;
 
-			return !(data.data.length == 0 && data.meta.total == 0);
+		if (!await (async () => {
+			try {
+				const res = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0`, { headers });
+				const data = await res.json();
+
+				return !(data.data.length == 0 && data.meta.total == 0);	
+			} catch (e) {
+				return false;
+			}
 		})()) {
+			downloading = false;
+
 			alert(`No data found for ID ${id}`);
 			return;
 		}
+
+		data.wrestler = null;
 
 		await (async () => {
 			console.log("Fetching bouts...");
@@ -401,16 +412,26 @@
 		<button type="button" on:click={() => { showing_help = true }}>Help</button>
 	</div>
 	
-	<div class="data">
-		{#if data.wrestler == null}
-			{#if downloading}
-				<p>Downloading {downloading_state == DownloadingState.BOUTS ? "bouts" : "placements"}... {Math.round(downloading_progress * 100)}%</p>
+	{#if downloading}
+		<div class="download-info">
+			{#if downloading_state == DownloadingState.CHECKING}
+				<p>Checking ID validity...</p>
 			{:else}
-				<p>No data</p>
+				{#if downloading_state == DownloadingState.BOUTS}
+					<p>Downloading bouts... {Math.round(downloading_progress * 100)}%</p>
+				{:else}
+					<p>Downloading placements... {Math.round(downloading_progress * 100)}%</p>
+				{/if}
 			{/if}
-		{:else}
+		</div>
+	{:else if data.wrestler == null}
+		<p>No data</p>
+	{/if}
+
+	<div class="data">
+		{#if data.wrestler != null}
 			{#if data.response_size}
-				<p>Response size: {humanFileSize(data.response_size, true, 2)}</p>
+				<p class="response-size">Response size: {humanFileSize(data.response_size, true, 2)}</p>
 			{/if}
 			<div class="basic-info">
 				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
@@ -631,6 +652,10 @@
 
 	.placement > * {
 		margin: 0;
+	}
+
+	.response-size {
+		color: #777;
 	}
 
 	.placement-display {
