@@ -313,6 +313,7 @@
 					// make sure there is a leading 0
 					let month = (date.getMonth() + 1).toString().padStart(2, "0");
 					let day = date.getDate().toString().padStart(2, "0");
+					let year = date.getFullYear();
 
 					seasons.find(x => x.season == season).matches.push({
 						id: bout.id,
@@ -320,7 +321,7 @@
 							name: event.attributes.name,
 							id: event.id,
 						},
-						date: `${month}/${day}`,
+						date: `${month}/${day}/${year}`,
 						division: division.attributes.name,
 						opponent: {
 							id: opponent.attributes.identityPersonId,
@@ -385,8 +386,8 @@
 
 			seasons.forEach(season => {
 				season.placements.sort((a, b) =>  (new Date(b.event.date)).getTime() - (new Date(a.event.date)).getTime());
-			
-			})
+				season.matches.sort((a, b) =>  (new Date(b.date)).getTime() - (new Date(a.date)).getTime());
+			});
 
 			data.wrestler = {
 				id: wrestler.attributes.identityPersonId,
@@ -548,7 +549,7 @@
 																<td>{match.result}</td>
 																<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
 																<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
-																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 30) + (match.event.name.length > 30 ? "..." : "")}</a></td>
+																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 25) + (match.event.name.length > 25 ? "..." : "")}</a></td>
 																<td>{match.round}</td>
 															</tr>
 														{/each}
