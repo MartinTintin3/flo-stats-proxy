@@ -3,7 +3,7 @@
 	import { onMount } from "svelte";
 
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
-	import { ratio, humanFileSize, DownloadingState, getWithProgress } from "../defs";
+	import { ratio, humanFileSize, DownloadingState, getWithProgress, getIncludedObject } from "../defs";
 	
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
@@ -12,6 +12,9 @@
 	let id = "";
 
 	let downloading = false;
+
+	/** @type {string | null} */
+	let quick_name = null;
 
 	/** @type {import("../defs").Nullable<import("../defs").DownloadingState>} */
 	let downloading_state = DownloadingState.BOUTS;
@@ -147,8 +150,15 @@
 
 		if (!await (async () => {
 			try {
-				const res = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0`, { headers });
+				const res = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=1&page[offset]=0&include=topWrestler,bottomWrestler`, { headers });
 				const data = await res.json();
+
+				const wrestler = data.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
+
+				quick_name = `${wrestler.attributes.firstName} ${wrestler.attributes.lastName}`;
+
+				document.title = `${quick_name} | Flo Stats`;
+				history.pushState({}, "", `?id=${id}`);
 
 				return !(data.data.length == 0 && data.meta.total == 0);	
 			} catch (e) {
@@ -168,23 +178,22 @@
 			downloading = true;
 			downloading_progress = 0;
 			downloading_state = DownloadingState.BOUTS;
-			let req = await getWithProgress(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, headers, (loaded, total) => {
+			let req = await getWithProgress(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division,event`, headers, (loaded, total) => {
 				data.response_size = loaded;
-				console.log(loaded, total);
-				downloading_progress = loaded / total;
+				downloading_progress = loaded / total / 2;
 			});
-			downloading_progress = 1;
+			downloading_progress = 0.5;
 			//let req = await fetch(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division`, { headers });
 			//data.response_size = parseInt(req.headers.get("content-length") ?? "0");
 			const bouts_data = req;
 
 			console.log("Fetching placements...");
 			downloading_state = DownloadingState.PLACEMENTS;
+			downloading_progress = 0.5;
 			const starting_size = data.response_size;
 			req = await getWithProgress(`https://floarena-api.flowrestling.org/wrestlers/?identityPersonId=${id}&page[size]=0&page[offset]=0&include=bracketPlacements.weightClass,division,event,weightClass,team`, headers, (loaded, total) => {
 				data.response_size = starting_size + loaded;
-				console.log(loaded, total);
-				downloading_progress = loaded / total;
+				downloading_progress = loaded / total / 2 + 0.5;
 			});
 			downloading_progress = 1;
 			const placements_data = req;
@@ -200,9 +209,6 @@
 			const wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.attributes.identityPersonId == id);
 			const division = bouts_data.included.find(x => x.type == "division" && x.id == wrestler.attributes.divisionId);
 
-			document.title = `${wrestler.attributes.firstName} ${wrestler.attributes.lastName} | Flo Stats`;
-			history.pushState({}, "", `?id=${id}`);
-
 			/*const thanksgiving = new Date(new Date().getFullYear(), 10, 1);
 			thanksgiving.setDate(thanksgiving.getDate() + (4 - thanksgiving.getDay()) + 21);
 			
@@ -212,7 +218,7 @@
 
 			/** @type {import("../defs").Stats} */
 			const total_stats = {
-				total: filteredBouts.length,
+				total: 0,
 				wins: 0,
 				losses: 0,
 				pins: 0,
@@ -221,8 +227,9 @@
 			};
 
 			filteredBouts.forEach(bout => {
-				const winner = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
-				if (winner) {
+				const winner = getIncludedObject(bouts_data, "wrestler", bout.attributes.winnerWrestlerId);
+				if (winner && !(bout.attributes.dualId && bout.attributes.winType == "FOR")) {
+					total_stats.total++;
 					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
 						total_stats.wins++;
 
@@ -234,14 +241,19 @@
 					} else {
 						total_stats.losses++;
 					}
-				} else {
-					console.log(bout);
 				}
 			});
 
 			total_stats.ratio = ratio(total_stats.wins, total_stats.losses);
 
-			/** @type {Array<{ season: string, stats: import("../defs").Stats, grade: import("../defs").Grade | null, placements: Array<import("../defs").PlacementInfo> }>} */
+			/** @type {Array<{
+			 * 	season: string,
+			 * 	stats: import("../defs").Stats,
+			 * 	grade: import("../defs").Grade | null,
+			 * 	placements: Array<import("../defs").PlacementInfo>,
+			 *  matches: Array<import("../defs").Match>
+			 * }>
+			 * } */
 			const seasons = [];
 
 			let latest_location = {
@@ -251,8 +263,8 @@
 			};
 
 			filteredBouts.forEach(bout => {
-				const top_wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.topWrestlerId);
-				const bottom_wrestler = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.bottomWrestlerId);
+				const top_wrestler = getIncludedObject(bouts_data, "wrestler", bout.attributes.topWrestlerId);
+				const bottom_wrestler = getIncludedObject(bouts_data, "wrestler", bout.attributes.bottomWrestlerId);
 
 				const selected_wrestler = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? top_wrestler : bottom_wrestler : bottom_wrestler;
 
@@ -264,8 +276,8 @@
 					};
 				}
 
-				const winner = bouts_data.included.find(x => x.type == "wrestler" && x.id == bout.attributes.winnerWrestlerId);
-				if (winner) {
+				const winner = getIncludedObject(bouts_data, "wrestler", bout.attributes.winnerWrestlerId);
+				if (winner && !(bout.attributes.dualId && bout.attributes.winType == "FOR")) {
 					const season = get_season(new Date(bout.attributes.modifiedDateTimeUtc || bout.attributes.createdDateTimeUtc));
 
 					if (!seasons.find(x => x.season == season)) {
@@ -281,6 +293,7 @@
 							},
 							grade: null,
 							placements: [],
+							matches: [],
 						});
 					}
 
@@ -288,6 +301,39 @@
 					const season_stats = seasons.find(x => x.season == season).stats;
 
 					season_stats.total++;
+
+					const event = getIncludedObject(bouts_data, "event", bout.attributes.eventId);
+					const weight_class = getIncludedObject(bouts_data, "weightClass", bout.attributes.weightClassId);
+					const division = getIncludedObject(bouts_data, "division", winner.relationships.division.data.id);
+					const opponent = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? bottom_wrestler : top_wrestler : bottom_wrestler;
+					const opponent_team = getIncludedObject(bouts_data, "team", opponent.attributes.teamId);
+
+					let date = new Date(event.attributes.startDateTime);
+					// make sure there is a leading 0
+					let month = (date.getMonth() + 1).toString().padStart(2, "0");
+					let day = date.getDate().toString().padStart(2, "0");
+
+					seasons.find(x => x.season == season).matches.push({
+						id: bout.id,
+						event: {
+							name: event.attributes.name,
+							id: event.id,
+						},
+						date: `${month}/${day}`,
+						division: division.attributes.name,
+						weight_class: weight_class.attributes.name + " " + division.attributes.measurementUnit,
+						opponent: {
+							id: opponent.attributes.identityPersonId,
+							name: `${opponent.attributes.firstName} ${opponent.attributes.lastName}`,
+							team: {
+								name: opponent_team.attributes.name,
+								state: opponent_team.attributes.state,
+							},
+						},
+						result: `${bout.attributes.winType} ${bout.attributes.result}`,
+						win: winner.attributes.identityPersonId == wrestler.attributes.identityPersonId,
+					});
+					
 
 					if (winner.attributes.identityPersonId == wrestler.attributes.identityPersonId) {
 						season_stats.wins++;
@@ -330,9 +376,9 @@
 						id: event.id,
 						date: new Date(event.attributes.startDateTime).toLocaleDateString(),
 					},
-					placement: placement_info ? placement_info.attributes.placementDisplay : "DNP",
+					placement: placement_info ? placement_info.attributes.placementDisplay : Date.now() - Date.parse(event.attributes.startDateTime) < 0 ? "N/A" : "DNP",
 					division: division.attributes.name,
-					weight_class: weight_class.attributes.name + " lbs",
+					weight_class: weight_class ? weight_class.attributes.name + " lbs" : "",
 				});
 			});
 
@@ -427,9 +473,9 @@
 				<p>Checking ID validity...</p>
 			{:else}
 				{#if downloading_state == DownloadingState.BOUTS}
-					<p>Downloading bouts... {Math.round(downloading_progress * 100)}%</p>
+					<p>Downloading bouts for <span style="font-weight: bold">{quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
 				{:else}
-					<p>Downloading placements... {Math.round(downloading_progress * 100)}%</p>
+					<p>Downloading placements for <span style="font-weight: bold">${quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
 				{/if}
 			{/if}
 		</div>
@@ -453,17 +499,17 @@
 						<Stats stats={data.wrestler.total_stats}/>
 					</div>
 					<div class="season-stats">
-						<span class="stats-group-label">By Season</span>
+						<span class="stats-group-label">Seasons</span>
 						<div class="season-list">
 							{#each data.wrestler.seasons as season}
 								<div class="season">
-									<h4 class="stats-label">{season.season}</h4>
+									<h3 class="stats-label">{season.season}</h3>
 									{#if season.grade}
 										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
 									{/if}
 									<Stats stats={season.stats}/>
 									{#if season.placements.length}
-										<Collapsible unexpanded_title="Placements (Expand)" expanded_title="Placements (Close)">
+										<Collapsible unexpanded_title="Placements (Expand)" expanded_title="Placements (Collapse)">
 											<div class="placements">
 												{#each season.placements as placement}
 													<div class="placement">
@@ -478,6 +524,50 @@
 												{/each}
 											</div>
 										</Collapsible>
+										<Collapsible unexpanded_title="Matches (Expand)" expanded_title="Matches (Collapse)">
+											<table class="matches">
+												<thead>
+													<tr>
+														<th>Date</th>
+														<th>W/L</th>
+														<th>Result</th>
+														<th>Opponent</th>
+														<th>Opp. Team</th>
+														<th>Event</th>
+													</tr>
+												</thead>
+												<tbody>
+													{#each season.matches as match}
+														<tr>
+															<!-- without the year -->
+															<td>{match.date}</td>
+															<td><span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span></td>
+															<td>{match.result}</td>
+															<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
+															<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
+															<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 30) + (match.event.name.length > 30 ? "..." : "")}</a></td>
+														</tr>
+													{/each}
+												</tbody>
+											</table>
+											<!--<div class="matches">
+												{#each season.matches as match}
+													<div class="match">
+														<div class="match-result">
+															<span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span>
+															<span class="match-score">{match.result}</span>
+														</div>
+														<span class="match-event"><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name}</a></span>
+														<span>{match.event.date}</span>
+														<div class="match-category">
+															<span>{match.division}</span>
+															<span>{match.weight_class}</span>
+														</div>
+														<span class="match-opponent">{match.opponent.name} ({match.opponent.team.name}, {match.opponent.team.state})</span>
+													</div>
+												{/each}
+											</div>-->
+										</Collapsible>
 									{/if}
 								</div>
 							{/each}
@@ -486,7 +576,7 @@
 				</div>
 			</div>
 			{#if data.response_size}
-				<p class="response-size">Response size: {humanFileSize(data.response_size, true, 2)}</p>
+				<p class="response-size">Data size: {humanFileSize(data.response_size, true, 2)}</p>
 			{/if}
 		{/if}
 	</div>
@@ -643,6 +733,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5em;
+		padding: 1em;
 	}
 
 	.placement {
@@ -669,6 +760,38 @@
 	}
 
 	.placement-display {
+		font-weight: bold;
+	}
+
+	.matches {
+		border-collapse: collapse;
+		border: 1px solid #ccc;
+		width: 100%;
+	}
+
+	.matches th, .matches td {
+		padding: 0.3em 0.5em;
+	}
+
+	.matches th {
+		padding-top: 0.5em;
+	}
+
+	.matches tr:nth-child(even) {
+		background-color: #f2f2f2;
+	}
+
+	.matches * {
+		/** align all columns to left */
+		text-align: left;
+	}
+
+	.opponent-name *, .opponent-name *:visited {
+		font-weight: bold;
+		color: black;
+	}
+
+	.match-win {
 		font-weight: bold;
 	}
 </style>

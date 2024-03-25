@@ -35,6 +35,27 @@ export interface PlacementInfo {
 	weight_class: string;
 }
 
+export interface Match {
+	id: string;
+	event: {
+		id: string;
+		name: string;
+	};
+	date: string;
+	opponent: {
+		id: string;
+		name: string;
+		team: {
+			name: string;
+			state: string;
+		}
+	};
+	division: string;
+	weight_class: string;
+	result: string;
+	win: boolean;
+}
+
 export interface Wrestler {
 	id: string;
 	firstName: string;
@@ -50,6 +71,7 @@ export interface Wrestler {
 		season: string;
 		stats: Stats;
 		placements: Array<PlacementInfo>,
+		matches: Array<Match>;
 		grade: Nullable<Grade>;
 	}>;
 }
@@ -136,4 +158,8 @@ export function getWithProgress(url: string, headers: Headers, onProgress: (load
 		});
 		xhr.send();
 	});
+}
+
+export function getIncludedObject(data: any, type: string, id: string): any {
+	return data.included.find((x: any) => x.type == type && x.id == id);
 }

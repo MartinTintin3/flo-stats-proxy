@@ -31,7 +31,8 @@
 	}
 
 	.contents {
-		padding: 1em;
+		padding: 0;
+		width: 100%;
 	}
 	
 	h4 {

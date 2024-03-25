@@ -3,9 +3,6 @@
 		<span class="stats-data-field-label">Total:</span> {stats.total}
 	</div>
 	<div class="stat">
-		<span class="stats-data-field-label">Total:</span> {stats.total}
-	</div>
-	<div class="stat">
 		<span class="stats-data-field-label">Wins:</span> <span class="green">{stats.wins}</span>
 	</div>
 	<div class="stat">
