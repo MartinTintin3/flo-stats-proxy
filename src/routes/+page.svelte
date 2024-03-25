@@ -475,7 +475,7 @@
 				{#if downloading_state == DownloadingState.BOUTS}
 					<p>Downloading bouts for <span style="font-weight: bold">{quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
 				{:else}
-					<p>Downloading placements for <span style="font-weight: bold">${quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
+					<p>Downloading placements for <span style="font-weight: bold">{quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
 				{/if}
 			{/if}
 		</div>
