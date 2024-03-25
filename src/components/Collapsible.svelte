@@ -10,7 +10,7 @@
 <div class="collapsible">
 	<button aria-expanded={expanded} on:click={() => expanded = !expanded}>
 		<div></div>
-		<h4>{expanded ? expanded_title : unexpanded_title}</h4>
+		<h3>{expanded ? expanded_title : unexpanded_title}</h3>
 		<svg viewBox="0 0 20 20" fill="none" >
 		<path class="vert" d="M10 1V19" stroke="black" stroke-width="2"/>
 		<path d="M1 10L19 10" stroke="black" stroke-width="2"/>
@@ -35,7 +35,7 @@
 		width: 100%;
 	}
 	
-	h4 {
+	h3 {
 		margin: 0;
 	}
 	
