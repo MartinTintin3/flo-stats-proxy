@@ -2,13 +2,12 @@
 	import { page } from "$app/stores";
 	import { onMount } from "svelte";
 
-	import { afterNavigate, beforeNavigate } from "$app/navigation";
+	import { afterNavigate } from "$app/navigation";
 	import { ratio, humanFileSize, DownloadingState, getWithProgress, getIncludedObject } from "../defs";
 	
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
 	import Collapsible from "../components/Collapsible.svelte";
-  import { redirect } from "@sveltejs/kit";
 
 	let id = "";
 
@@ -378,7 +377,7 @@
 						id: event.id,
 						date: new Date(event.attributes.startDateTime).toLocaleDateString(),
 					},
-					placement: placement_info ? placement_info.attributes.placementDisplay : Date.now() - Date.parse(event.attributes.startDateTime) < 0 ? "N/A" : "DNP",
+					placement: placement_info ? placement_info.attributes.placementDisplay : Date.now() - Date.parse(event.attributes.startDateTime) < 0 ? "N/A (TBD)" : "DNP",
 					division: division.attributes.name,
 					weight_class: weight_class ? weight_class.attributes.name + " lbs" : "",
 				});
@@ -528,7 +527,7 @@
 																<span>{placement.division}</span>
 																<span>{placement.weight_class}</span>
 															</div>
-															<span class="placement-display">{placement.placement}</span>
+															<span class="placement-display placement-{placement.placement.replace(" ", "").replace("(", "").replace(")", "").replace("/", "")}">{placement.placement}</span>
 														</div>
 													{/each}
 												</div>
@@ -607,6 +606,34 @@
 
 	:global(.green) {
 		color: green;
+	}
+
+	/**:global(.placement-1st) {
+		color: green;
+	}
+
+	:global(.placement-2nd) {
+		color: silver;
+	}
+
+	:global(.placement-3rd) {
+		color: #cd7f32;
+	}
+
+	:global(.placement-4th) {
+		color: #cd7f32;
+	}
+
+	:global(.placement-5th) {
+		color: #cd7f32;
+	}
+
+	:global(.placement-6th) {
+		color: #cd7f32;
+	}*/
+
+	:global(.placement-DNP) {
+		color: red;
 	}
 
 	.container {
