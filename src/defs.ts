@@ -51,7 +51,7 @@ export interface Match {
 		}
 	};
 	division: string;
-	weight_class: string;
+	round: string;
 	result: string;
 	win: boolean;
 }

@@ -178,7 +178,7 @@
 			downloading = true;
 			downloading_progress = 0;
 			downloading_state = DownloadingState.BOUTS;
-			let req = await getWithProgress(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division,event`, headers, (loaded, total) => {
+			let req = await getWithProgress(`https://floarena-api.flowrestling.org/bouts/?identityPersonId=${id}&page[size]=0&hasResult=true&page[offset]=0&include=bottomWrestler.team,topWrestler.team,weightClass,topWrestler.division,bottomWrestler.division,event,roundName`, headers, (loaded, total) => {
 				data.response_size = loaded;
 				downloading_progress = loaded / total / 2;
 			});
@@ -303,7 +303,7 @@
 					season_stats.total++;
 
 					const event = getIncludedObject(bouts_data, "event", bout.attributes.eventId);
-					const weight_class = getIncludedObject(bouts_data, "weightClass", bout.attributes.weightClassId);
+					const round = getIncludedObject(bouts_data, "roundName", bout.attributes.roundNameId);
 					const division = getIncludedObject(bouts_data, "division", winner.relationships.division.data.id);
 					const opponent = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? bottom_wrestler : top_wrestler : bottom_wrestler;
 					const opponent_team = getIncludedObject(bouts_data, "team", opponent.attributes.teamId);
@@ -321,7 +321,6 @@
 						},
 						date: `${month}/${day}`,
 						division: division.attributes.name,
-						weight_class: weight_class.attributes.name + " " + division.attributes.measurementUnit,
 						opponent: {
 							id: opponent.attributes.identityPersonId,
 							name: `${opponent.attributes.firstName} ${opponent.attributes.lastName}`,
@@ -332,6 +331,7 @@
 						},
 						result: `${bout.attributes.winType} ${bout.attributes.result}`,
 						win: winner.attributes.identityPersonId == wrestler.attributes.identityPersonId,
+						round: round.attributes.displayName,
 					});
 					
 
@@ -534,6 +534,7 @@
 														<th>Opponent</th>
 														<th>Opp. Team</th>
 														<th>Event</th>
+														<th>Round</th>
 													</tr>
 												</thead>
 												<tbody>
@@ -546,6 +547,7 @@
 															<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
 															<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
 															<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 30) + (match.event.name.length > 30 ? "..." : "")}</a></td>
+															<td>{match.round}</td>
 														</tr>
 													{/each}
 												</tbody>
