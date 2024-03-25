@@ -8,6 +8,7 @@
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
 	import Collapsible from "../components/Collapsible.svelte";
+  import { redirect } from "@sveltejs/kit";
 
 	let id = "";
 
@@ -508,69 +509,71 @@
 										<span class="stats-data-field"><span class="stats-data-field-label">Grade:</span> ({season.grade.number}) {season.grade.name}</span>
 									{/if}
 									<Stats stats={season.stats}/>
-									{#if season.placements.length}
-										<Collapsible unexpanded_title="Placements (Expand)" expanded_title="Placements (Collapse)">
-											<div class="placements">
-												{#each season.placements as placement}
-													<div class="placement">
-														<span class="placement-event"><a target="_blank" href="https://arena.flowrestling.org/event/{placement.event.id}">{placement.event.name}</a></span>
-														<span>{placement.event.date}</span>
-														<div class="placement-category">
-															<span>{placement.division}</span>
-															<span>{placement.weight_class}</span>
+									<div class="expandable-lists">
+										{#if season.placements.length}
+											<Collapsible unexpanded_title="Placements (Expand)" expanded_title="Placements (Collapse)">
+												<div class="placements">
+													{#each season.placements as placement}
+														<div class="placement">
+															<span class="placement-event"><a target="_blank" href="https://arena.flowrestling.org/event/{placement.event.id}">{placement.event.name}</a></span>
+															<span>{placement.event.date}</span>
+															<div class="placement-category">
+																<span>{placement.division}</span>
+																<span>{placement.weight_class}</span>
+															</div>
+															<span class="placement-display">{placement.placement}</span>
 														</div>
-														<span class="placement-display">{placement.placement}</span>
-													</div>
-												{/each}
-											</div>
-										</Collapsible>
-										<Collapsible unexpanded_title="Matches (Expand)" expanded_title="Matches (Collapse)">
-											<table class="matches">
-												<thead>
-													<tr>
-														<th>Date</th>
-														<th>W/L</th>
-														<th>Result</th>
-														<th>Opponent</th>
-														<th>Opp. Team</th>
-														<th>Event</th>
-														<th>Round</th>
-													</tr>
-												</thead>
-												<tbody>
-													{#each season.matches as match}
-														<tr>
-															<!-- without the year -->
-															<td>{match.date}</td>
-															<td><span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span></td>
-															<td>{match.result}</td>
-															<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
-															<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
-															<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 30) + (match.event.name.length > 30 ? "..." : "")}</a></td>
-															<td>{match.round}</td>
-														</tr>
 													{/each}
-												</tbody>
-											</table>
-											<!--<div class="matches">
-												{#each season.matches as match}
-													<div class="match">
-														<div class="match-result">
-															<span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span>
-															<span class="match-score">{match.result}</span>
+												</div>
+											</Collapsible>
+											<Collapsible unexpanded_title="Matches (Expand)" expanded_title="Matches (Collapse)">
+												<table class="matches">
+													<thead>
+														<tr>
+															<th>Date</th>
+															<th>W/L</th>
+															<th>Result</th>
+															<th>Opponent</th>
+															<th>Opp. Team</th>
+															<th>Event</th>
+															<th>Round</th>
+														</tr>
+													</thead>
+													<tbody>
+														{#each season.matches as match}
+															<tr>
+																<!-- without the year -->
+																<td>{match.date}</td>
+																<td><span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span></td>
+																<td>{match.result}</td>
+																<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
+																<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
+																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 30) + (match.event.name.length > 30 ? "..." : "")}</a></td>
+																<td>{match.round}</td>
+															</tr>
+														{/each}
+													</tbody>
+												</table>
+												<!--<div class="matches">
+													{#each season.matches as match}
+														<div class="match">
+															<div class="match-result">
+																<span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span>
+																<span class="match-score">{match.result}</span>
+															</div>
+															<span class="match-event"><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name}</a></span>
+															<span>{match.event.date}</span>
+															<div class="match-category">
+																<span>{match.division}</span>
+																<span>{match.weight_class}</span>
+															</div>
+															<span class="match-opponent">{match.opponent.name} ({match.opponent.team.name}, {match.opponent.team.state})</span>
 														</div>
-														<span class="match-event"><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name}</a></span>
-														<span>{match.event.date}</span>
-														<div class="match-category">
-															<span>{match.division}</span>
-															<span>{match.weight_class}</span>
-														</div>
-														<span class="match-opponent">{match.opponent.name} ({match.opponent.team.name}, {match.opponent.team.state})</span>
-													</div>
-												{/each}
-											</div>-->
-										</Collapsible>
-									{/if}
+													{/each}
+												</div>-->
+											</Collapsible>
+										{/if}
+									</div>
 								</div>
 							{/each}
 						</div>
@@ -791,6 +794,18 @@
 	.opponent-name *, .opponent-name *:visited {
 		font-weight: bold;
 		color: black;
+		transition: color 0.1s;
+	}
+
+	.expandable-lists {
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
+	}
+
+	.opponent-name a:hover {
+		color: red;
+		transition: color 0.1s;
 	}
 
 	.match-win {
