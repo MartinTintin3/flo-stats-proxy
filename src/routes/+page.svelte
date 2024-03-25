@@ -489,13 +489,19 @@
 		{#if data.wrestler != null}
 			<div class="basic-info">
 				<span class="main-name">{data.wrestler.firstName} {data.wrestler.lastName}</span>
+				<div class="main-info main-id-info">
+					<span><span class="main-info-label">ID:</span> {data.wrestler.id}</span>
+					<button type="button" on:click={() => {
+						navigator.clipboard.writeText(data.wrestler.id);
+						alert(`Copied ID of ${data.wrestler.firstName} ${data.wrestler.lastName} to clipboard`);
+					}}>Copy</button>
+				</div>
 				{#if data.wrestler.grade}
 				<span class="main-info"><span class="main-info-label">Grade:</span> ({data.wrestler.grade.number.toString()}) {data.wrestler.grade.name}</span>
 				{/if}
 				<span class="main-info"><span class="main-info-label">Location:</span> {data.wrestler.location.city}, {data.wrestler.location.state}, {data.wrestler.location.country}</span>
 
 				<div class="all-stats-container">
-					<span class="main-info-label" style="margin: 5px">Match Statistics:</span>
 					<div class="total-stats">
 						<span class="stats-group-label">Total</span>
 						<Stats stats={data.wrestler.total_stats}/>
@@ -647,6 +653,12 @@
 	.main-name {
 		font-size: 30px;
 		font-weight: bold;
+	}
+
+	.main-id-info {
+		display: flex;
+		flex-direction: row;
+		gap: 0.5em;
 	}
 
 	.main-info, .main-info-label {
