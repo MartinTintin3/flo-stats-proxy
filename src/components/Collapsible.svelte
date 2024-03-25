@@ -3,8 +3,8 @@
     // Inclusive Components by Heydon Pickering https://inclusive-components.design/collapsible-sections/
     let expanded = false;
 
-	export let expanded_title;
-	export let unexpanded_title;
+	export let expanded_title = "Collapse";
+	export let unexpanded_title = "Expand";
 </script>
 
 <div class="collapsible">
