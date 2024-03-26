@@ -307,6 +307,7 @@
 					const division = getIncludedObject(bouts_data, "division", winner.relationships.division.data.id);
 					const opponent = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? bottom_wrestler : top_wrestler : bottom_wrestler;
 					const opponent_team = opponent ? getIncludedObject(bouts_data, "team", opponent.attributes.teamId) : null;
+					const weight_class = getIncludedObject(bouts_data, "weightClass", bout.attributes.weightClassId);
 
 					if (!opponent) console.log(bout);
 
@@ -332,6 +333,7 @@
 								state: opponent_team.attributes.state,
 							},
 						} : null,
+						weightClass: weight_class ? `${weight_class.attributes.name} ${division.attributes.measurementUnit}` : "N/A",
 						result: `${bout.attributes.winType} ${bout.attributes.result}`,
 						win: winner.attributes.identityPersonId == wrestler.attributes.identityPersonId,
 						round: round.attributes.displayName,
@@ -543,6 +545,7 @@
 															<th>Opp. Team</th>
 															<th>Event</th>
 															<th>Round</th>
+															<th>Weight</th>
 														</tr>
 													</thead>
 													<tbody>
@@ -564,6 +567,7 @@
 																{/if}
 																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 25) + (match.event.name.length > 25 ? "..." : "")}</a></td>
 																<td>{match.round}</td>
+																<td>{match.weightClass}</td>
 															</tr>
 														{/each}
 													</tbody>

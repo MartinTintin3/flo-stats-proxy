@@ -50,6 +50,7 @@ export interface Match {
 			state: string;
 		}
 	}>;
+	weight_class: string;
 	division: string;
 	round: string;
 	result: string;
