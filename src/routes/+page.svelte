@@ -556,7 +556,13 @@
 																<td><span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span></td>
 																<td>{match.result}</td>
 																{#if match.opponent}
-																	<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
+																	<td class="opponent-name">
+																		{#if match.opponent.id}
+																			<a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a>
+																		{:else}
+																			{match.opponent.name}
+																		{/if}
+																	</td>
 																{:else}
 																	<td>Unknown Opponent</td>
 																{/if}
