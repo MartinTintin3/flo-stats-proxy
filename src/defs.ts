@@ -42,14 +42,14 @@ export interface Match {
 		name: string;
 	};
 	date: string;
-	opponent: {
+	opponent: Nullable<{
 		id: string;
 		name: string;
 		team: {
 			name: string;
 			state: string;
 		}
-	};
+	}>;
 	division: string;
 	round: string;
 	result: string;

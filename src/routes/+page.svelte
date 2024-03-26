@@ -277,7 +277,7 @@
 				}
 
 				const winner = getIncludedObject(bouts_data, "wrestler", bout.attributes.winnerWrestlerId);
-				if (winner && !(bout.attributes.dualId && bout.attributes.winType == "FOR")) {
+				if (winner && !(bout.attributes.dualId && (bout.attributes.winType == "FOR" || bout.attributes.winType == "VFO"))) {
 					const season = get_season(new Date(bout.attributes.modifiedDateTimeUtc || bout.attributes.createdDateTimeUtc));
 
 					if (!seasons.find(x => x.season == season)) {
@@ -306,7 +306,9 @@
 					const round = getIncludedObject(bouts_data, "roundName", bout.attributes.roundNameId);
 					const division = getIncludedObject(bouts_data, "division", winner.relationships.division.data.id);
 					const opponent = top_wrestler ? top_wrestler.attributes.identityPersonId == wrestler.attributes.identityPersonId ? bottom_wrestler : top_wrestler : bottom_wrestler;
-					const opponent_team = getIncludedObject(bouts_data, "team", opponent.attributes.teamId);
+					const opponent_team = opponent ? getIncludedObject(bouts_data, "team", opponent.attributes.teamId) : null;
+
+					if (!opponent) console.log(bout);
 
 					let date = new Date(event.attributes.startDateTime);
 					// make sure there is a leading 0
@@ -322,14 +324,14 @@
 						},
 						date: `${month}/${day}/${year}`,
 						division: division.attributes.name,
-						opponent: {
+						opponent: opponent ? {
 							id: opponent.attributes.identityPersonId,
 							name: `${opponent.attributes.firstName} ${opponent.attributes.lastName}`,
 							team: {
 								name: opponent_team.attributes.name,
 								state: opponent_team.attributes.state,
 							},
-						},
+						} : null,
 						result: `${bout.attributes.winType} ${bout.attributes.result}`,
 						win: winner.attributes.identityPersonId == wrestler.attributes.identityPersonId,
 						round: round.attributes.displayName,
@@ -348,7 +350,8 @@
 						season_stats.losses++;
 					}
 
-					if (selected_wrestler.attributes.grade) {
+					if (selected_wrestler.attributes.grade && selected_wrestler.attributes.grade.attributes.name != "NA") {
+						console.log(selected_wrestler.attributes.grade.attributes.name, selected_wrestler.attributes.grade.attributes.numericValue);
 						seasons.find(x => x.season == season).grade = {
 							name: selected_wrestler.attributes.grade.attributes.name,
 							number: selected_wrestler.attributes.grade.attributes.numericValue,
@@ -392,10 +395,7 @@
 				id: wrestler.attributes.identityPersonId,
 				firstName: wrestler.attributes.firstName,
 				lastName: wrestler.attributes.lastName,
-				grade: wrestler.attributes.grade ? {
-					name: wrestler.attributes.grade.attributes.name,
-					number: wrestler.attributes.grade.attributes.numericValue,
-				} : null,
+				grade: seasons[0].grade,
 				location: latest_location,
 				total_stats,
 				seasons,
@@ -552,8 +552,16 @@
 																<td>{match.date}</td>
 																<td><span class="match-win {match.win ? "green" : "red"}">{match.win ? "W" : "L"}</span></td>
 																<td>{match.result}</td>
-																<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
-																<td>{match.opponent.team.name}, {match.opponent.team.state}</td>
+																{#if match.opponent}
+																	<td class="opponent-name"><a target="_blank" href="?id={match.opponent.id}">{match.opponent.name}</a></td>
+																{:else}
+																	<td>Unknown Opponent</td>
+																{/if}
+																{#if match.opponent}
+																	<td>{match.opponent.team.name} ({match.opponent.team.state})</td>
+																{:else}
+																	<td></td>
+																{/if}
 																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 25) + (match.event.name.length > 25 ? "..." : "")}</a></td>
 																<td>{match.round}</td>
 															</tr>
