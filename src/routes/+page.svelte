@@ -620,11 +620,11 @@
 		color: green;
 	}
 
-	/**:global(.placement-1st) {
+	:global(.placement-1st) {
 		color: green;
 	}
 
-	:global(.placement-2nd) {
+	/**:global(.placement-2nd) {
 		color: silver;
 	}
 
