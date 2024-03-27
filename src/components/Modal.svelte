@@ -4,6 +4,7 @@
 	let dialog; // HTMLDialogElement
 
 	$: if (dialog && showModal) dialog.showModal();
+	$: if (dialog && !showModal) dialog.close();
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
@@ -25,7 +26,7 @@
 
 <style>
 	dialog {
-		max-width: 100em;
+		max-width: 85%;
 		border-radius: 0.2em;
 		border: none;
 		padding: 0;

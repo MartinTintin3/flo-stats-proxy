@@ -10,11 +10,15 @@ export enum DownloadingState {
 	PLACEMENTS = 2,
 }
 
+export enum SearchingState {
+	NONE = 0,
+	SEARCHING = 1,
+	PROCESSING = 2,
+}
+
 export type Ratio = [number, number];
 
 export type Grade = { name: string; number: number; };
-
-export type Nullable<T> = T | null;
 
 export interface Stats {
 	total: number;
@@ -42,14 +46,14 @@ export interface Match {
 		name: string;
 	};
 	date: string;
-	opponent: Nullable<{
+	opponent: {
 		id: string;
 		name: string;
 		team: {
 			name: string;
 			state: string;
 		}
-	}>;
+	} | null;
 	weight_class: string;
 	division: string;
 	round: string;
@@ -61,7 +65,7 @@ export interface Wrestler {
 	id: string;
 	firstName: string;
 	lastName: string;
-	grade: Nullable<Grade>;
+	grade: Grade | null;
 	location: {
 		city: string;
 		country: string;
@@ -73,13 +77,13 @@ export interface Wrestler {
 		stats: Stats;
 		placements: Array<PlacementInfo>,
 		matches: Array<Match>;
-		grade: Nullable<Grade>;
+		grade: Grade | null;
 	}>;
 }
 
 export interface Data {
 	response_size: number;
-	wrestler: Nullable<Wrestler>;
+	wrestler: Wrestler | null;
 }
 
 /**

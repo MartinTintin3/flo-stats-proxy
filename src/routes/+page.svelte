@@ -3,23 +3,41 @@
 	import { onMount } from "svelte";
 
 	import { afterNavigate } from "$app/navigation";
-	import { ratio, humanFileSize, DownloadingState, getWithProgress, getIncludedObject } from "../defs";
+	import { ratio, humanFileSize, DownloadingState, getWithProgress, getIncludedObject, SearchingState } from "../defs";
 	
 	import Stats from "../components/Stats.svelte";
 	import Modal from "../components/Modal.svelte";
 	import Collapsible from "../components/Collapsible.svelte";
-
-	let id = "";
 
 	let downloading = false;
 
 	/** @type {string | null} */
 	let quick_name = null;
 
-	/** @type {import("../defs").Nullable<import("../defs").DownloadingState>} */
+	/** @type {import("../defs").DownloadingState | null} */
 	let downloading_state = DownloadingState.BOUTS;
 
 	let downloading_progress = 0; // between 0 and 1;
+
+	let input = "";
+
+	/** @type {{
+	 * name: string;
+	 * location: {
+	 * 	name: string;
+	 * 	country: string;
+	 * 	city: string;
+	 * 	state: string;
+	 * }
+	 * hs_graduation_year: number;
+	 * id: string; // Arena Person Identity ID
+	 * }[]} */
+	let search_results = [];
+	let search_total = 0;
+
+	let show_search_modal = false;
+
+	let searching_state = SearchingState.NONE;
 
 	/**
 	 * @param {Date} date
@@ -122,13 +140,16 @@
 		wrestler: null,
 	};
 
-	const load_data = async () => {
+	/** @param {string} id */
+	const load_data = async id => {
 		if (id == "") return alert("No ID/URL provided");
 
 		const headers = new Headers({
 			"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
 		});
+
+		// example id: 064ad7f4-8d16-4dd2-94b1-1dd1c45c3832
 
 		if (id.includes("flowrestling.org")) {
 			const regex = /flowrestling.org\/athletes\/((?:[0-9a-z]+-?)+)/g;
@@ -141,6 +162,7 @@
 				alert("Invalid link");
 				return;
 			}
+
 		}
 
 		window["get_season"] = get_season;
@@ -403,26 +425,76 @@
 				seasons,
 			}
 
+			input = "";
+
 			window["current_data"] = data;
 		})();
 	};
 
+	/** @param {string} name */
+	const search = async (name) => {
+		history.pushState({}, "", `?q=${name}`);
+
+		if (!name.match(/^(?:(?!:\/\/|flowrestling).)*$/gm)) return alert("Invalid input");
+
+		searching_state = SearchingState.SEARCHING;
+		show_search_modal = true;
+
+		const res = await (await fetch(`https://api.flowrestling.org/api/experiences/web/legacy-core/search?site_id=2&version=1.24.0&limit=200&view=global-search-web&fields=data%3C1%3E&q=${encodeURIComponent(name)}&page=1&type=person`)).json();
+
+		searching_state = SearchingState.PROCESSING;
+
+		search_total = res.meta.total;
+
+		if (!res.data) {
+			search_results = [];
+		} else {
+			search_results = res.data.map(o => { return {
+				name: o.name,
+				location: location ? {
+					name: o.location.name,
+					country: o.location.country,
+					state: o.location.state,
+					city: o.location.city,
+				} : null,
+				hs_graduation_year: o.high_school_grad_year,
+				id: o.arena_person_identity_id,
+			}});
+		}
+
+		console.log(search_results);
+
+		searching_state = SearchingState.NONE;
+	};
+
 	afterNavigate(() => {
-		console.log("afterNavigate", $page.url.searchParams.get("id"));
-		id = $page.url.searchParams.get("id") || "";
-		if (id != "") load_data();
+		const q = $page.url.searchParams.get("q");
+		const id = $page.url.searchParams.get("id");
+
+		if (id) { load_data(id); input = id; return; }
+		if (q && !searching_state) { search(q); input = q; return; }
 	});
 
 	onMount(() => {
-		console.log("onMount", $page.url.searchParams.get("id"));
-		id = $page.url.searchParams.get("id") || "";
-		if (id != "") load_data();
+		const q = $page.url.searchParams.get("q");
+		const id = $page.url.searchParams.get("id");
+
+		if (id) { load_data(id); input = id; return; }
+		if (q && !searching_state) { search(q); input = q; return; }
 	});
 
+	const on_search_click = () => {
+		if (!input.includes("flowrestling") && !input.includes("-") && !input.match(/[0-9]/)) {
+			search(input);
+		} else {
+			load_data(input);
+		}
+	};
+
 	const handle_popstate = () => {
-		if ($page.url.searchParams.get("id") && $page.url.searchParams.get("id") != id) {
-			id = $page.url.searchParams.get("id");
-			load_data();
+		if ($page.url.searchParams.get("id") && $page.url.searchParams.get("id") != data.wrestler?.id) {
+			const id = $page.url.searchParams.get("id");
+			if (id) { load_data(id); input = id };
 		}
 	}
 
@@ -433,37 +505,69 @@
 	<title>Flo Stats</title> 
 </svelte:head>
 
-<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { load_data() } }} on:popstate={handle_popstate} />
+<!---<svelte:window on:keydown={({ repeat, key }) => { if (!repeat && key == "Enter") { on_search_click() } }} on:popstate={handle_popstate} /> -->
 
 <Modal bind:showModal = {showing_help}>
-	<h2 slot="header">
-		Correctly getting your ID
-	</h2>
+	<div slot="header">
+		<h2>How to use this tool</h2>
+	</div>
 
 	<div class="help-info">
-		<div class="correct">
-			<span class="help-title">Correct:</span>
-			<img src="correct.png" alt="Correct example" />
-		</div>
-		<div class="incorrect">
-			<span class="help-title">Incorrect:</span>
-			<img src="incorrect.png" alt="Incorrect example" />
-		</div>
+		<span>Every athlete on FloWrestling has a unique ID that can be used to fetch their record (And subsequently calculate their stats). This ID can be found in the URL of their "results" page. For example, the ID of <a target="_blank" href="https://www.flowrestling.org/athletes/064ad7f4-8d16-4dd2-94b1-1dd1c45c3832">this athlete</a> is <span class="monospace">064ad7f4-8d16-4dd2-94b1-1dd1c45c3832</span>. <span class="bold red">If you don't have their ID, you can search for the athlete by <span class="underline">name</span>. </span></span>
+
+		<h3>Either input a <span class="bold underline">name</span> or an <span class="bold underline">athlete ID</span></h3>
+
+		<img src="/example.png" alt="Example of an athlete ID" style="width: 80%;" />
+
+		<span class="help-subtitle">Athlete IDs can be found in <a target="_blank" href="https://arena.flowrestling.org">FloArena</a> tournaments</span>
 	</div>
-	<span class="help-subtitle">Usually found in <a target="_blank" href="https://arena.flowrestling.org">FloArena</a> tournaments</span>
+</Modal>
+
+<Modal bind:showModal = {show_search_modal}>
+	<h2 slot="header">
+		Search Results
+	</h2>
+
+	<div class="search-results">
+		{#if searching_state}
+			<p>{searching_state == SearchingState.SEARCHING ? "Searching..." : `Processing ${search_total} result${search_total == 1 ? "" : "s"}...`}</p>
+		{:else}
+			{#if search_results.length}
+				<h3>Please select an athlete:</h3>
+				<div class="search-result-options">
+					{#each search_results as option}
+						<div class="search-result" on:click={() => {
+							input = option.id;
+							show_search_modal = false;
+							quick_name = option.name;
+							load_data(option.id);
+						}}>
+							<span class="option-name">{option.name}</span>
+							{#if option.location}
+								<span class="option-location">{option.location.city}, {option.location.state}, {option.location.country}</span>
+							{/if}
+							<span class="option-hs-grad-year">HS Graduation Year: {option.hs_graduation_year}</span>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p>No results</p>
+			{/if}
+		{/if}
+	</div>
 </Modal>
 
 <div class="container">
 	<h1>FloWrestling Statistics Calculator</h1>
 	<div class="id-input">
 		<div>
-			<input type="text" placeholder="Athlete ID or URL" bind:value={id}>
-			<button type="button" on:click={load_data}>Fetch</button>
+			<input type="text" placeholder="Athlete ID or Name" bind:value={input}>
+			<button type="button" on:click={on_search_click}>Search</button>
 		</div>
 		<div>
 			<button type="button" on:click={() => {
 				navigator.clipboard.readText().then(text => {
-					id = text;
+					input = text;
 				});
 			}}>Paste from Clipboard</button>
 			<button type="button" on:click={() => { showing_help = true }}>Help</button>
@@ -473,7 +577,11 @@
 	{#if downloading}
 		<div class="download-info">
 			{#if downloading_state == DownloadingState.CHECKING}
-				<p>Checking ID validity...</p>
+				{#if !quick_name}
+					<p>Checking ID validity...</p>
+				{:else}
+					<p>Checking ID validity for <span style="font-weight: bold">{quick_name}</span>...</p>
+				{/if}
 			{:else}
 				{#if downloading_state == DownloadingState.BOUTS}
 					<p>Downloading bouts for <span style="font-weight: bold">{quick_name}</span>... {Math.round(downloading_progress * 100)}%</p>
@@ -573,7 +681,7 @@
 																{/if}
 																<td><a target="_blank" href="https://arena.flowrestling.org/event/{match.event.id}">{match.event.name.substring(0, 25) + (match.event.name.length > 25 ? "..." : "")}</a></td>
 																<td>{match.round}</td>
-																<td>{match.weightClass}</td>
+																<td>{match.weight_class}</td>
 															</tr>
 														{/each}
 													</tbody>
@@ -652,6 +760,18 @@
 
 	:global(.placement-DNP) {
 		color: red;
+	}
+
+	:global(.bold) {
+		font-weight: bold;
+	}
+
+	:global(.underline) {
+		text-decoration: underline;
+	}
+
+	:global(.monospace) {
+		font-family: monospace;
 	}
 
 	.container {
@@ -757,16 +877,9 @@
 	
 	.help-info {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		gap: 1em;
-	}
-
-	.correct > .help-title {
-		color: green;
-	}
-
-	.incorrect > .help-title {
-		color: red;
+		max-width: 800px;
 	}
 
 	.help-title {
@@ -867,6 +980,46 @@
 	}
 
 	.match-win {
+		font-weight: bold;
+	}
+
+	.search-results {
+		display: flex;
+		flex-direction: column;
+		gap: 1em;
+	}
+
+	.search-result-options {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 0.5em;
+	}
+
+	.search-result-options > * {
+		flex: 0 1 30%; /* 33% width, no grow, no shrink */
+	}
+
+	 @media (max-width: 800px) {
+		.search-result-options > * {
+			flex: 1 1 40%; /* 33% width, no grow, no shrink */
+		}
+	}
+
+	.search-result {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2em;
+		border: 1px solid #ccc;
+		border-radius: 5px;
+		padding: 1em;
+	}
+
+	.search-result:hover {
+		background-color: #f2f2f2;
+	}
+
+	.option-name {
 		font-weight: bold;
 	}
 </style>
