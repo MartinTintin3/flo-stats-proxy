@@ -993,16 +993,20 @@
 		display: flex;
 		flex-direction: row;
 		flex-wrap: wrap;
-		gap: 0.5em;
+		gap: 1em;
 	}
 
 	.search-result-options > * {
-		flex: 0 1 30%; /* 33% width, no grow, no shrink */
+		flex: 1 1 30%; /* 33% width, no grow, no shrink */
 	}
 
 	 @media (max-width: 800px) {
 		.search-result-options > * {
 			flex: 1 1 40%; /* 33% width, no grow, no shrink */
+		}
+		
+		.search-result-options {
+			gap: 0.5em;
 		}
 	}
 
