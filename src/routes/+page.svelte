@@ -533,7 +533,7 @@
 			<p>{searching_state == SearchingState.SEARCHING ? "Searching..." : `Processing ${search_total} result${search_total == 1 ? "" : "s"}...`}</p>
 		{:else}
 			{#if search_results.length}
-				<h3>Please select an athlete:</h3>
+				<h3>Choose an athlete ({search_total} total):</h3>
 				<div class="search-result-options">
 					{#each search_results as option}
 						<div class="search-result" on:click={() => {
